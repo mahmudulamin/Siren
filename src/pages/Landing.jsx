@@ -35,13 +35,13 @@ const Landing = () => {
               
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/request-help">
-                  <Button size="lg" className="bg-gray-500 text-white hover:bg-gray-600 border-2 border-white shadow-lg">
+                  <Button size="lg" variant="" className="bg-gray-300 text-gray-900 hover:bg-gray-400 border-2 border-white shadow-lg">
                     Request Emergency Help
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
                 <Link to="/login">
-                  <Button size="lg" className="bg-pink-200 border-2 border-white !text-gray-900 hover:bg-pink-300 shadow-lg">
+                  <Button size="lg" variant="" className="bg-gray-300 text-gray-900 hover:bg-gray-400 border-2 border-white shadow-lg">
                     Volunteer Login
                   </Button>
                 </Link>
@@ -138,7 +138,7 @@ const Landing = () => {
             Make a difference in your community. Help save lives during emergencies.
           </p>
           <Link to="/register">
-            <Button size="lg" className="bg-gray-500 text-white hover:bg-gray-600 border-2 border-white shadow-lg">
+            <Button size="lg" variant="" className="bg-gray-300 text-gray-900 hover:bg-gray-400 border-2 border-white shadow-lg">
               Register as Volunteer
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
