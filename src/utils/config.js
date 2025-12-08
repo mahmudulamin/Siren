@@ -32,9 +32,6 @@ export const REQUEST_STATUS = {
 // Emergency types
 export const EMERGENCY_TYPES = [
   'Flood',
-  'Cyclone',
-  'Earthquake',
-  'Fire',
   'Medical Emergency',
   'Food/Water Shortage',
   'Shelter Needed',
