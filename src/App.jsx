@@ -19,6 +19,8 @@ import RequestsList from './pages/RequestsList';
 import TasksPage from './pages/TasksPage';
 import AdminPanel from './pages/AdminPanel';
 import AIZones from './pages/AIZones';
+import DonatePage from './pages/DonatePage';
+import DonationHistoryPage from './pages/DonationHistoryPage';
 
 /**
  * Main App Component
@@ -87,6 +89,24 @@ function App() {
             <Route path="/map" element={<MapView />} />
             <Route path="/requests" element={<RequestsList />} />
             <Route path="/tasks" element={<TasksPage />} />
+            
+            {/* Donor routes */}
+            <Route
+              path="/donate"
+              element={
+                <ProtectedRoute allowedRoles={['donor', 'official']}>
+                  <DonatePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/donation-history"
+              element={
+                <ProtectedRoute allowedRoles={['donor', 'official']}>
+                  <DonationHistoryPage />
+                </ProtectedRoute>
+              }
+            />
             
             {/* Admin-only routes */}
             <Route

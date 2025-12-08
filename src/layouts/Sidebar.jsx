@@ -9,6 +9,8 @@ import {
   BarChart3, 
   AlertCircle,
   HelpCircle,
+  Heart,
+  History,
   X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -34,6 +36,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       ],
       volunteer: [
         { path: '/tasks', icon: ClipboardList, label: 'My Tasks' }
+      ],
+      donor: [
+        { path: '/donate', icon: Heart, label: 'Make Donation' },
+        { path: '/donation-history', icon: History, label: 'My Donations' }
       ],
       official: [
         { path: '/tasks', icon: ClipboardList, label: 'Task Management' },

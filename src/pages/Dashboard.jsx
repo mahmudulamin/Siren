@@ -5,6 +5,7 @@ import StatsCard from '../components/StatsCard';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import Loader from '../components/Loader';
+import DonorDashboard from '../components/DonorDashboard';
 import { getAllRequests } from '../services/requestService';
 import { getVolunteerTasks } from '../services/volunteerService';
 import { getDashboardStats } from '../services/adminService';
@@ -23,6 +24,8 @@ const Dashboard = () => {
     return <VolunteerDashboard />;
   } else if (user?.role === 'official') {
     return <OfficialDashboard />;
+  } else if (user?.role === 'donor') {
+    return <DonorDashboard />;
   }
   
   return <div>Loading...</div>;
