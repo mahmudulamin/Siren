@@ -46,6 +46,14 @@ const Navbar = ({ toggleSidebar, showMenuButton = false }) => {
                 <p className="text-xs text-gray-500">Emergency Response</p>
               </div>
             </Link>
+            
+            {/* FAQ Link */}
+            <Link
+              to="/faq"
+              className="ml-6 text-gray-700 hover:text-gray-900 font-medium hidden md:block bg-gray-300 px-4 py-2 rounded-lg"
+            >
+              FAQ
+            </Link>
           </div>
           
           {/* Right section */}
@@ -133,7 +141,7 @@ const Navbar = ({ toggleSidebar, showMenuButton = false }) => {
               <div className="flex items-center space-x-3">
                 <Link
                   to="/login"
-                  className="text-gray-700 hover:text-gray-900 font-medium"
+                  className="text-gray-700 hover:text-gray-900 font-medium bg-gray-300 px-4 py-2 rounded-lg"
                 >
                   Login
                 </Link>
