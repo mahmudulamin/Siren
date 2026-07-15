@@ -1,550 +1,223 @@
-# SIREN Backend - RESTful API Server
+# SIREN Backend API
 
-**Smart Integrated Rescue & Emergency Network** - A comprehensive backend system for real-time emergency response coordination.
+SIREN Backend is the REST API service for the Strategic Incident Response and Emergency Network platform.
 
-## 🚀 Features
+It provides authentication, emergency request handling, volunteer management, donation operations, and official analytics for coordinated disaster response.
 
-- ✅ JWT-based authentication with role-based access control
-- ✅ Emergency request management with real-time status tracking
-- ✅ Volunteer profile management and task assignment
-- ✅ Donation system with multiple payment methods
-- ✅ Advanced analytics and reporting for officials
-- ✅ Comprehensive error handling and validation
-- ✅ Rate limiting and security best practices
-- ✅ Full Swagger/OpenAPI documentation
-- ✅ MongoDB integration with Mongoose ORM
-- ✅ Production-ready logging and monitoring
+## Overview
 
----
+The backend is built as a modular Node.js and Express application with MongoDB persistence. It is designed to support role-based operations across victims, volunteers, officials, and donors.
 
-## 📋 Prerequisites
+Core objectives:
 
-- **Node.js**: v18.0.0 or higher
-- **MongoDB**: v5.0 or higher (local or Atlas)
-- **npm**: v8.0.0 or higher
+- Provide secure role-aware API access
+- Maintain structured emergency request workflows
+- Support volunteer assignment and profile management
+- Record and summarize donation activity
+- Offer dashboard analytics and zone-level insights
 
----
+## Tech Stack
 
-## 🔧 Installation
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- JSON Web Token (JWT)
+- bcryptjs
+- express-validator
+- express-rate-limit
+- Helmet
+- CORS
+- Morgan
+- Swagger (swagger-jsdoc and swagger-ui-express)
 
-### 1. Install Dependencies
+## Project Structure
 
-```bash
-npm install
+```text
+backend/
+  src/
+    config/         database and swagger configuration
+    controllers/    business logic
+    middleware/     auth, authorization, validation, errors, limits
+    models/         mongoose schemas
+    routes/         REST endpoint definitions
+    seed/           seed script for sample data
+    utils/          response, error, token, logger utilities
+    app.js          express app composition
+    server.js       startup and process lifecycle
 ```
 
-### 2. Configure Environment
+## Prerequisites
 
-Copy `.env.example` to `.env` and update values:
+- Node.js 18 or newer
+- npm 8 or newer
+- MongoDB 5 or newer (local or Atlas)
+
+## Environment Setup
+
+Copy environment template:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
+Default variables:
 
-```env
-PORT=5000
-NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/siren_db
-JWT_SECRET=your_secret_key_here
-FRONTEND_URL=http://localhost:3000
-LOG_LEVEL=debug
-```
+- PORT=5000
+- NODE_ENV=development
+- MONGODB_URI=mongodb://localhost:27017/siren_db
+- JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
+- JWT_EXPIRE=7d
+- FRONTEND_URL=http://localhost:3000
+- RATE_LIMIT_WINDOW_MS=900000
+- RATE_LIMIT_MAX_REQUESTS=100
+- LOG_LEVEL=debug
 
-### 3. Ensure MongoDB is Running
+## Installation
 
-**For MongoDB locally:**
+Install dependencies:
 
 ```bash
-mongod
+npm install
 ```
 
-**For MongoDB Atlas:**
-Update `MONGODB_URI` in `.env`:
-
-```env
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/siren_db
-```
-
-### 4. Start the Server
-
-**Development mode (with auto-reload):**
+Run in development mode:
 
 ```bash
 npm run dev
 ```
 
-**Production mode:**
+Run in production mode:
 
 ```bash
 npm start
 ```
 
-Server runs on `http://localhost:5000`
-
----
-
-## 🌱 Database Seeding
-
-Populate the database with mock data:
+Seed sample data:
 
 ```bash
 npm run seed
 ```
 
-This creates:
+## Runtime Endpoints
 
-- 6 test users (various roles)
-- 5 emergency requests
-- 3 volunteers
-- 5 donations
+- Health check: http://localhost:5000/health
+- API docs: http://localhost:5000/api/docs
+- Swagger JSON: http://localhost:5000/api/docs/swagger.json
 
----
+## API Base
 
-## 📚 API Documentation
+- Base URL: http://localhost:5000/api
 
-### Interactive Swagger Documentation
+## Authentication Model
 
-After starting the server, visit:
+Protected endpoints require a bearer token:
 
-```
-http://localhost:5000/api/docs
-```
+Authorization: Bearer YOUR_JWT_TOKEN
 
-### Health Check
+Role enforcement is handled in middleware and routes.
 
-```bash
-curl http://localhost:5000/health
-```
+Supported roles:
 
----
+- victim
+- volunteer
+- official
+- donor
 
-## 🔐 Authentication
+## Endpoint Groups
 
-All protected endpoints require JWT token in `Authorization` header:
+### Auth
 
-```bash
-Authorization: Bearer {token}
-```
+- POST /auth/register
+- POST /auth/login
+- GET /auth/me
+- POST /auth/logout
 
-### Register User
+### Emergency Requests
 
-```bash
-POST /api/auth/register
-Content-Type: application/json
+- GET /requests
+- POST /requests
+- GET /requests/:id
+- PUT /requests/:id
+- DELETE /requests/:id
+- POST /requests/:id/assign
 
-{
-  "email": "user@example.com",
-  "password": "Password123",
-  "name": "John Doe",
-  "phone": "+8801700000000",
-  "role": "victim"
-}
-```
+### Volunteers
 
-**Response:**
+- GET /volunteers
+- POST /volunteers/profile
+- GET /volunteers/:id
+- PUT /volunteers/:id
+- GET /volunteers/:id/stats
+
+### Donations
+
+- GET /donations
+- POST /donations
+- GET /donations/user/history
+- GET /donations/stats/overview
+- GET /donations/category/breakdown
+- PUT /donations/:id/status
+
+### Admin
+
+- GET /admin/stats
+- GET /admin/analytics?period=7d|30d|90d|1y
+- GET /admin/zones
+
+## Response Format
+
+The API uses a standardized JSON structure:
 
 ```json
 {
   "success": true,
-  "message": "Registration successful",
-  "data": {
-    "token": "eyJhbGc...",
-    "user": {
-      "_id": "...",
-      "email": "user@example.com",
-      "name": "John Doe",
-      "role": "victim"
-    }
-  }
+  "message": "Operation successful",
+  "data": {}
 }
 ```
 
-### Login User
+## Security and Stability
 
-```bash
-POST /api/auth/login
-Content-Type: application/json
+- Helmet for secure HTTP headers
+- CORS origin restriction via FRONTEND_URL
+- Global and route-level rate limiting
+- Password hashing with bcryptjs
+- JWT-based stateless authentication
+- Input validation with express-validator
+- Centralized error handling middleware
 
-{
-  "email": "user@example.com",
-  "password": "Password123",
-  "role": "victim"
-}
-```
+## Development Notes
 
----
+- Swagger is generated from route annotations
+- Pagination and filtering are available on key listing endpoints
+- Controllers return consistent response envelopes via utility classes
+- Server startup validates database connectivity before serving traffic
 
-## 📊 API Endpoints
+## Integration Guidance
 
-### Authentication (`/api/auth`)
+For full-stack local development:
 
-| Method | Endpoint    | Description                  |
-| ------ | ----------- | ---------------------------- |
-| POST   | `/register` | Register new user            |
-| POST   | `/login`    | Login user                   |
-| GET    | `/me`       | Get current user (protected) |
-| POST   | `/logout`   | Logout user (protected)      |
+1. Run backend on port 5000
+2. Run frontend on port 3000
+3. Set frontend VITE_API_BASE_URL to backend API base URL
+4. Ensure FRONTEND_URL in backend environment matches frontend origin
 
-### Emergency Requests (`/api/requests`)
+## Deployment Checklist
 
-| Method | Endpoint      | Description                               |
-| ------ | ------------- | ----------------------------------------- |
-| GET    | `/`           | List all requests (paginated, filterable) |
-| POST   | `/`           | Create new request (protected)            |
-| GET    | `/:id`        | Get request by ID (protected)             |
-| PUT    | `/:id`        | Update request (protected)                |
-| DELETE | `/:id`        | Delete request (protected)                |
-| POST   | `/:id/assign` | Assign volunteer (official only)          |
+- Set strong JWT_SECRET in production
+- Configure production MONGODB_URI
+- Restrict FRONTEND_URL to deployed frontend domain
+- Set NODE_ENV=production
+- Run behind a reverse proxy with HTTPS
+- Monitor logs and rate-limit behavior
 
-**Query Parameters:**
+## Scripts
 
-- `page`: Page number (default: 1)
-- `limit`: Items per page (default: 10, max: 100)
-- `status`: Filter by status (pending, assigned, in_progress, completed, cancelled)
-- `severity`: Filter by severity (low, medium, high, critical)
-- `emergencyType`: Filter by type (Flood, Medical Emergency, etc.)
-- `search`: Search in name, description, address
+- npm run dev: run with nodemon
+- npm start: run with node
+- npm run seed: populate sample dataset
 
-### Volunteers (`/api/volunteers`)
+## License
 
-| Method | Endpoint     | Description                          |
-| ------ | ------------ | ------------------------------------ |
-| GET    | `/`          | List all volunteers (paginated)      |
-| GET    | `/:id`       | Get volunteer by ID                  |
-| PUT    | `/:id`       | Update volunteer (protected)         |
-| POST   | `/profile`   | Create volunteer profile (protected) |
-| GET    | `/:id/stats` | Get volunteer statistics             |
-
-**Query Parameters:**
-
-- `page`: Page number
-- `limit`: Items per page
-- `availability`: Filter by availability (true/false)
-
-### Donations (`/api/donations`)
-
-| Method | Endpoint              | Description                      |
-| ------ | --------------------- | -------------------------------- |
-| GET    | `/`                   | List public donations            |
-| POST   | `/`                   | Create donation                  |
-| GET    | `/user/history`       | Get user's donations (protected) |
-| GET    | `/stats/overview`     | Get donation statistics          |
-| GET    | `/category/breakdown` | Get donations by category        |
-| PUT    | `/:id/status`         | Update status (official only)    |
-
-### Admin Analytics (`/api/admin`)
-
-| Method | Endpoint               | Description         | Auth     |
-| ------ | ---------------------- | ------------------- | -------- |
-| GET    | `/stats`               | Dashboard stats     | Official |
-| GET    | `/analytics?period=7d` | Detailed analytics  | Official |
-| GET    | `/zones`               | AI zone predictions | Official |
-
-**Supported periods:** `7d`, `30d`, `90d`, `1y`
-
----
-
-## 👥 User Roles & Permissions
-
-### Role-Based Access Control (RBAC)
-
-| Role          | Permissions                                                                      |
-| ------------- | -------------------------------------------------------------------------------- |
-| **victim**    | Create/view own requests, view volunteers                                        |
-| **volunteer** | View requests, accept tasks, update profile, view stats                          |
-| **official**  | Full access to all requests, assign volunteers, view analytics, manage donations |
-| **donor**     | Create donations, view donation history, view impact stats                       |
-
----
-
-## 🛡️ Security Features
-
-- ✅ **Helmet.js**: Security headers
-- ✅ **CORS**: Cross-origin resource sharing protection
-- ✅ **JWT**: Token-based authentication
-- ✅ **Bcryptjs**: Password hashing (10 salt rounds)
-- ✅ **Rate Limiting**: 100 requests per 15 minutes
-- ✅ **Input Validation**: express-validator on all endpoints
-- ✅ **Environment Variables**: Sensitive data in `.env`
-
----
-
-## 📝 Error Handling
-
-Standard error response format:
-
-```json
-{
-  "success": false,
-  "message": "Error message",
-  "errors": [
-    {
-      "field": "email",
-      "message": "Invalid email format"
-    }
-  ]
-}
-```
-
-### Common HTTP Status Codes
-
-- `200`: Success
-- `201`: Created
-- `400`: Bad Request (validation error)
-- `401`: Unauthorized (auth required)
-- `403`: Forbidden (insufficient permissions)
-- `404`: Not Found
-- `409`: Conflict (duplicate entry)
-- `500`: Internal Server Error
-
----
-
-## 📊 Data Models
-
-### User
-
-```json
-{
-  "_id": "ObjectId",
-  "email": "string (unique)",
-  "password": "string (hashed)",
-  "name": "string",
-  "phone": "string",
-  "role": "victim|volunteer|official|donor",
-  "isActive": "boolean",
-  "createdAt": "datetime",
-  "updatedAt": "datetime"
-}
-```
-
-### Emergency Request
-
-```json
-{
-  "_id": "ObjectId",
-  "victimName": "string",
-  "phone": "string",
-  "email": "string",
-  "address": "string",
-  "coordinates": {
-    "lat": "number",
-    "lng": "number"
-  },
-  "emergencyType": "string",
-  "description": "string",
-  "severity": "low|medium|high|critical",
-  "status": "pending|assigned|in_progress|completed|cancelled",
-  "assignedVolunteer": {
-    "volunteerId": "ObjectId",
-    "name": "string",
-    "phone": "string",
-    "assignedAt": "datetime"
-  },
-  "createdAt": "datetime",
-  "updatedAt": "datetime"
-}
-```
-
-### Volunteer
-
-```json
-{
-  "_id": "ObjectId",
-  "userId": "ObjectId (ref: User)",
-  "name": "string",
-  "email": "string",
-  "phone": "string",
-  "skills": ["string"],
-  "availability": "boolean",
-  "location": {
-    "lat": "number",
-    "lng": "number"
-  },
-  "tasksCompleted": "number",
-  "rating": "number (0-5)",
-  "bio": "string",
-  "createdAt": "datetime",
-  "updatedAt": "datetime"
-}
-```
-
-### Donation
-
-```json
-{
-  "_id": "ObjectId",
-  "donorId": "ObjectId (ref: User, optional)",
-  "donorName": "string",
-  "email": "string",
-  "phone": "string",
-  "type": "money|supply",
-  "category": "string",
-  "amount": "number (for money donations)",
-  "items": ["string"] (for supply donations),
-  "quantity": "number",
-  "status": "pending|verified|completed|failed",
-  "paymentMethod": "bKash|Nagad|Rocket|Card|Bank Transfer|Direct",
-  "anonymous": "boolean",
-  "transactionId": "string (unique)",
-  "createdAt": "datetime"
-}
-```
-
----
-
-## 🧪 Testing API Endpoints
-
-### Using cURL
-
-```bash
-# Register
-curl -X POST http://localhost:5000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email":"test@example.com",
-    "password":"Password123",
-    "name":"Test User",
-    "phone":"+8801700000000",
-    "role":"victim"
-  }'
-
-# Login
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email":"test@example.com",
-    "password":"Password123",
-    "role":"victim"
-  }'
-
-# Get Requests
-curl -X GET "http://localhost:5000/api/requests?page=1&limit=10&status=pending" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
-
-### Using Postman
-
-1. Import API collection from Swagger at `/api/docs`
-2. Set environment variable: `token = {JWT_TOKEN}`
-3. Use `Authorization` header with value: `Bearer {{token}}`
-
----
-
-## 📊 Project Structure
-
-```
-backend/
-├── src/
-│   ├── config/              # Configuration files
-│   │   ├── database.js      # MongoDB connection
-│   │   └── swagger.js       # Swagger documentation
-│   ├── controllers/         # Business logic
-│   │   ├── authController.js
-│   │   ├── requestController.js
-│   │   ├── volunteerController.js
-│   │   ├── donationController.js
-│   │   └── adminController.js
-│   ├── models/              # Database schemas
-│   │   ├── User.js
-│   │   ├── Request.js
-│   │   ├── Volunteer.js
-│   │   └── Donation.js
-│   ├── routes/              # API routes
-│   │   ├── authRoutes.js
-│   │   ├── requestRoutes.js
-│   │   ├── volunteerRoutes.js
-│   │   ├── donationRoutes.js
-│   │   └── adminRoutes.js
-│   ├── middleware/          # Middleware functions
-│   │   ├── auth.js
-│   │   ├── authorize.js
-│   │   ├── errorHandler.js
-│   │   ├── notFound.js
-│   │   └── rateLimiter.js
-│   ├── validators/          # Input validation
-│   │   ├── authValidator.js
-│   │   ├── requestValidator.js
-│   │   ├── volunteerValidator.js
-│   │   └── donationValidator.js
-│   ├── utils/               # Utility functions
-│   │   ├── ApiError.js
-│   │   ├── ApiResponse.js
-│   │   ├── generateToken.js
-│   │   └── logger.js
-│   ├── seed/                # Database seeding
-│   │   └── seed.js
-│   ├── app.js               # Express app setup
-│   └── server.js            # Server entry point
-├── .env                      # Environment variables
-├── .env.example              # Environment template
-├── package.json              # Dependencies
-└── README.md                 # Documentation
-```
-
----
-
-## 🚀 Deployment
-
-### Production Checklist
-
-- [ ] Update `.env` with production values
-- [ ] Set `NODE_ENV=production`
-- [ ] Use strong `JWT_SECRET`
-- [ ] Configure MongoDB Atlas connection
-- [ ] Enable HTTPS/TLS
-- [ ] Set up proper CORS origin
-- [ ] Enable rate limiting appropriately
-- [ ] Setup logging/monitoring
-- [ ] Create database backups
-
-### Deploy to Heroku
-
-```bash
-# Install Heroku CLI
-npm install -g heroku
-
-# Login to Heroku
-heroku login
-
-# Create app
-heroku create your-app-name
-
-# Set environment variables
-heroku config:set PORT=5000 NODE_ENV=production JWT_SECRET=your_secret
-
-# Push to Heroku
-git push heroku main
-```
-
-### Deploy to Railway, Render, or AWS
-
-Follow platform-specific deployment guides with the `.env` configuration.
-
----
-
-## 📧 Support & Contact
-
-For issues or questions:
-
-- Check API documentation at `/api/docs`
-- Review error messages in console logs
-- Check `.env` configuration
-- Ensure MongoDB is running and accessible
-
----
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow the existing code style and add tests for new features.
-
----
-
-**Made with ❤️ for Emergency Response Coordination**
+MIT License
