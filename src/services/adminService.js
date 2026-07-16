@@ -1,4 +1,5 @@
 import api from './api';
+import { unwrapApiResponse } from './apiHelpers';
 
 /**
  * Admin Service
@@ -11,7 +12,7 @@ import api from './api';
 export const getDashboardStats = async () => {
   try {
     const response = await api.get('/admin/stats');
-    return response.data;
+    return { stats: unwrapApiResponse(response) };
   } catch (error) {
     console.warn('API not available, using mock data');
     
@@ -36,7 +37,7 @@ export const getDashboardStats = async () => {
 export const getAnalytics = async (period = '7d') => {
   try {
     const response = await api.get('/admin/analytics', { params: { period } });
-    return response.data;
+    return { analytics: unwrapApiResponse(response) };
   } catch (error) {
     console.warn('API not available, using mock data');
     
@@ -83,7 +84,7 @@ export const getAnalytics = async (period = '7d') => {
 export const getZonePredictions = async () => {
   try {
     const response = await api.get('/admin/zones');
-    return response.data;
+    return { zones: unwrapApiResponse(response) };
   } catch (error) {
     console.warn('API not available, using mock data');
     
@@ -160,7 +161,7 @@ export const getZonePredictions = async () => {
 export const approveVolunteer = async (volunteerId) => {
   try {
     const response = await api.post(`/admin/volunteers/${volunteerId}/approve`);
-    return response.data;
+    return unwrapApiResponse(response);
   } catch (error) {
     console.warn('API not available, using mock response');
     return { message: 'Volunteer approved successfully' };
@@ -173,7 +174,7 @@ export const approveVolunteer = async (volunteerId) => {
 export const getSystemLogs = async (limit = 50) => {
   try {
     const response = await api.get('/admin/logs', { params: { limit } });
-    return response.data;
+    return unwrapApiResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
     

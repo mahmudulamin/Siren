@@ -6,7 +6,7 @@ import Input from '../components/Input';
 import Select from '../components/Select';
 import Textarea from '../components/Textarea';
 import Alert from '../components/Alert';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 /**
  * Donation Page Component

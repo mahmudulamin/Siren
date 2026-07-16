@@ -2,7 +2,21 @@
  * Configuration file for application-wide constants
  */
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const resolveDefaultApiBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return 'http://localhost:5000/api';
+  }
+
+  const { protocol, hostname } = window.location;
+
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `${protocol}//${hostname}:5000/api`;
+  }
+
+  return `${protocol}//${hostname}:5000/api`;
+};
+
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || resolveDefaultApiBaseUrl();
 export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
 // Default map center (Dhaka, Bangladesh)

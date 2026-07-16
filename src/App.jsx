@@ -3,6 +3,8 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute } from './components/RouteGuards';
+import NetworkStatusBanner from './components/NetworkStatusBanner';
+import { useOfflineSync } from './hooks/useOfflineSync';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -26,9 +28,12 @@ import DonationHistoryPage from './pages/DonationHistoryPage';
  * Main App Component
  */
 function App() {
+  useOfflineSync();
+
   return (
     <AuthProvider>
       <HashRouter>
+        <NetworkStatusBanner />
         <Toaster
           position="top-right"
           toastOptions={{

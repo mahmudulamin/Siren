@@ -1,13 +1,22 @@
 import api from './api';
 import { generateId } from '../utils/helpers';
+import {
+  buildOfflineRequest,
+  cacheRequest,
+  getCachedRequestById,
+  getCachedRequests,
+  mergeRequests,
+  removeCachedRequest
+} from './offlineStore';
+import { unwrapApiResponse } from './apiHelpers';
 
 /**
  * Request Service
  * Handles help request operations
  */
 
-// Mock data for development
-let mockRequests = [
+// Seed data for demo/offline mode
+const seedRequests = [
   {
     id: '1',
     victimName: 'Karim Ahmed',
@@ -64,18 +73,41 @@ let mockRequests = [
   }
 ];
 
+const readFallbackRequests = () => {
+  const cachedRequests = getCachedRequests();
+  return cachedRequests.length > 0 ? cachedRequests : seedRequests;
+};
+
+const normalizeRequestResponse = (response) => {
+  const apiData = unwrapApiResponse(response);
+
+  if (apiData?.request) {
+    return apiData;
+  }
+
+  return apiData;
+};
+
 /**
  * Get all help requests
  */
 export const getAllRequests = async (filters = {}) => {
   try {
     const response = await api.get('/requests', { params: filters });
-    return response.data;
+    const apiData = normalizeRequestResponse(response);
+    const serverRequests = apiData?.requests || [];
+    const localRequests = getCachedRequests();
+    const combinedRequests = mergeRequests(serverRequests, localRequests);
+
+    return {
+      ...apiData,
+      requests: combinedRequests.length > 0 ? combinedRequests : readFallbackRequests()
+    };
   } catch (error) {
     console.warn('API not available, using mock data');
     
-    // Apply filters to mock data
-    let filtered = [...mockRequests];
+    // Apply filters to cached or seed data
+    let filtered = [...readFallbackRequests()];
     
     if (filters.status) {
       filtered = filtered.filter(r => r.status === filters.status);
@@ -97,10 +129,10 @@ export const getAllRequests = async (filters = {}) => {
 export const getRequestById = async (id) => {
   try {
     const response = await api.get(`/requests/${id}`);
-    return response.data;
+    return normalizeRequestResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
-    const request = mockRequests.find(r => r.id === id);
+    const request = getCachedRequestById(id) || readFallbackRequests().find(r => r.id === id);
     return { request };
   }
 };
@@ -111,20 +143,22 @@ export const getRequestById = async (id) => {
 export const createRequest = async (requestData) => {
   try {
     const response = await api.post('/requests', requestData);
-    return response.data;
+    const apiData = normalizeRequestResponse(response);
+
+    if (apiData?.request) {
+      cacheRequest(apiData.request);
+    }
+
+    return apiData;
   } catch (error) {
-    console.warn('API not available, using mock data');
+    console.warn('API not available, saving request locally');
     
-    const newRequest = {
-      id: generateId(),
-      ...requestData,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      assignedVolunteer: null
-    };
+    const newRequest = buildOfflineRequest({
+      id: `offline-${generateId()}`,
+      ...requestData
+    });
     
-    mockRequests.push(newRequest);
+    cacheRequest(newRequest);
     return { request: newRequest, message: 'Request created successfully' };
   }
 };
@@ -135,18 +169,27 @@ export const createRequest = async (requestData) => {
 export const updateRequest = async (id, updates) => {
   try {
     const response = await api.put(`/requests/${id}`, updates);
-    return response.data;
+    const apiData = normalizeRequestResponse(response);
+
+    if (apiData?.request) {
+      cacheRequest(apiData.request);
+    }
+
+    return apiData;
   } catch (error) {
     console.warn('API not available, using mock data');
     
-    const index = mockRequests.findIndex(r => r.id === id);
+    const localRequests = getCachedRequests();
+    const index = localRequests.findIndex(r => r.id === id);
     if (index !== -1) {
-      mockRequests[index] = {
-        ...mockRequests[index],
+      const updatedRequest = {
+        ...localRequests[index],
         ...updates,
         updatedAt: new Date().toISOString()
       };
-      return { request: mockRequests[index], message: 'Request updated successfully' };
+
+      cacheRequest(updatedRequest);
+      return { request: updatedRequest, message: 'Request updated successfully' };
     }
     throw new Error('Request not found');
   }
@@ -158,13 +201,14 @@ export const updateRequest = async (id, updates) => {
 export const deleteRequest = async (id) => {
   try {
     const response = await api.delete(`/requests/${id}`);
-    return response.data;
+    removeCachedRequest(id);
+    return normalizeRequestResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
     
-    const index = mockRequests.findIndex(r => r.id === id);
+    const index = getCachedRequests().findIndex(r => r.id === id);
     if (index !== -1) {
-      mockRequests.splice(index, 1);
+      removeCachedRequest(id);
       return { message: 'Request deleted successfully' };
     }
     throw new Error('Request not found');
@@ -177,11 +221,16 @@ export const deleteRequest = async (id) => {
 export const getRequestsByVictim = async (victimId) => {
   try {
     const response = await api.get(`/requests/victim/${victimId}`);
-    return response.data;
+    const apiData = normalizeRequestResponse(response);
+    const combinedRequests = mergeRequests(apiData?.requests || [], getCachedRequests());
+    return {
+      ...apiData,
+      requests: combinedRequests.length > 0 ? combinedRequests : readFallbackRequests()
+    };
   } catch (error) {
     console.warn('API not available, using mock data');
-    // For mock, return all requests
-    return { requests: mockRequests };
+    // For offline/demo mode, return cached or seed requests
+    return { requests: readFallbackRequests() };
   }
 };
 
@@ -201,4 +250,46 @@ export const uploadRequestPhoto = async (file) => {
     console.warn('API not available, using mock URL');
     return { url: URL.createObjectURL(file) };
   }
+};
+
+export const syncOfflineRequests = async () => {
+  if (!navigator.onLine) {
+    return { synced: 0 };
+  }
+
+  const pendingRequests = getCachedRequests().filter((request) => request.syncStatus === 'pending');
+  let synced = 0;
+
+  for (const pendingRequest of pendingRequests) {
+    const payload = {
+      victimName: pendingRequest.victimName,
+      phone: pendingRequest.phone,
+      email: pendingRequest.email,
+      address: pendingRequest.address,
+      coordinates: pendingRequest.coordinates,
+      emergencyType: pendingRequest.emergencyType,
+      description: pendingRequest.description,
+      severity: pendingRequest.severity,
+      photoUrl: pendingRequest.photoUrl || null
+    };
+
+    try {
+      const response = await api.post('/requests', payload);
+      const apiData = normalizeRequestResponse(response);
+
+      if (apiData?.request) {
+        cacheRequest({
+          ...apiData.request,
+          source: 'server',
+          syncStatus: 'synced'
+        });
+        removeCachedRequest(pendingRequest.id);
+        synced += 1;
+      }
+    } catch {
+      // Keep the request locally until the next online sync.
+    }
+  }
+
+  return { synced };
 };

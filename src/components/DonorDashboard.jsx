@@ -3,7 +3,7 @@ import { Heart, DollarSign, TrendingUp, Users, Package, AlertCircle } from 'luci
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 /**
  * Donor Dashboard Component

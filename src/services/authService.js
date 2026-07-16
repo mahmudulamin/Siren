@@ -1,4 +1,5 @@
 import api from './api';
+import { unwrapApiResponse } from './apiHelpers';
 
 /**
  * Authentication Service
@@ -11,14 +12,15 @@ import api from './api';
 export const login = async (email, password, role) => {
   try {
     const response = await api.post('/auth/login', { email, password, role });
+    const apiData = unwrapApiResponse(response);
     
     // Store token and user data
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    if (apiData?.token) {
+      localStorage.setItem('token', apiData.token);
+      localStorage.setItem('user', JSON.stringify(apiData.user));
     }
     
-    return response.data;
+    return apiData;
   } catch (error) {
     // Mock response for development
     console.warn('API not available, using mock data');
@@ -44,14 +46,15 @@ export const login = async (email, password, role) => {
 export const register = async (userData) => {
   try {
     const response = await api.post('/auth/register', userData);
+    const apiData = unwrapApiResponse(response);
     
     // Store token and user data
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    if (apiData?.token) {
+      localStorage.setItem('token', apiData.token);
+      localStorage.setItem('user', JSON.stringify(apiData.user));
     }
     
-    return response.data;
+    return apiData;
   } catch (error) {
     // Mock response for development
     console.warn('API not available, using mock data');
@@ -75,7 +78,7 @@ export const register = async (userData) => {
 export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = '/login';
+  globalThis.location.href = '/login';
 };
 
 /**

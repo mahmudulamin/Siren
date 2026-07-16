@@ -12,6 +12,8 @@ const api = axios.create({
   }
 });
 
+api.defaults.withCredentials = true;
+
 /**
  * Request interceptor - Add auth token to requests
  */

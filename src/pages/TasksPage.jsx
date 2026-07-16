@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, Clock, Play, MapPin } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import Button from '../components/Button';

@@ -1,5 +1,6 @@
 import api from './api';
 import { generateId } from '../utils/helpers';
+import { unwrapApiResponse } from './apiHelpers';
 
 /**
  * Volunteer Service
@@ -86,7 +87,7 @@ let mockVolunteers = [
 export const getAllVolunteers = async (filters = {}) => {
   try {
     const response = await api.get('/volunteers', { params: filters });
-    return response.data;
+    return unwrapApiResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
     
@@ -106,7 +107,7 @@ export const getAllVolunteers = async (filters = {}) => {
 export const getVolunteerById = async (id) => {
   try {
     const response = await api.get(`/volunteers/${id}`);
-    return response.data;
+    return unwrapApiResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
     const volunteer = mockVolunteers.find(v => v.id === id);
@@ -120,7 +121,7 @@ export const getVolunteerById = async (id) => {
 export const getVolunteerTasks = async (volunteerId) => {
   try {
     const response = await api.get(`/volunteers/${volunteerId}/tasks`);
-    return response.data;
+    return unwrapApiResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
     const tasks = mockTasks.filter(t => t.volunteerId === volunteerId);
@@ -134,7 +135,7 @@ export const getVolunteerTasks = async (volunteerId) => {
 export const acceptTask = async (taskId) => {
   try {
     const response = await api.post(`/tasks/${taskId}/accept`);
-    return response.data;
+    return unwrapApiResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
     
@@ -157,7 +158,7 @@ export const acceptTask = async (taskId) => {
 export const updateTaskStatus = async (taskId, status, notes = '') => {
   try {
     const response = await api.put(`/tasks/${taskId}/status`, { status, notes });
-    return response.data;
+    return unwrapApiResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
     
@@ -181,7 +182,7 @@ export const updateTaskStatus = async (taskId, status, notes = '') => {
 export const getAllTasks = async (filters = {}) => {
   try {
     const response = await api.get('/tasks', { params: filters });
-    return response.data;
+    return unwrapApiResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
     
@@ -201,7 +202,7 @@ export const getAllTasks = async (filters = {}) => {
 export const assignVolunteer = async (requestId, volunteerId) => {
   try {
     const response = await api.post('/tasks/assign', { requestId, volunteerId });
-    return response.data;
+    return unwrapApiResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
     
@@ -232,7 +233,7 @@ export const assignVolunteer = async (requestId, volunteerId) => {
 export const updateVolunteerAvailability = async (volunteerId, availability) => {
   try {
     const response = await api.put(`/volunteers/${volunteerId}/availability`, { availability });
-    return response.data;
+    return unwrapApiResponse(response);
   } catch (error) {
     console.warn('API not available, using mock data');
     
