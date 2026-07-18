@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
+  ClipboardList,
   Clock3,
   LocateFixed,
   MapPin,
@@ -16,9 +17,10 @@ import Badge from '../components/Badge';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Select from '../components/Select';
+import Modal from '../components/Modal';
 import Loader from '../components/Loader';
 import StatsCard from '../components/StatsCard';
-import { getAllVolunteers } from '../services/volunteerService';
+import { assignVolunteer, getAllVolunteers } from '../services/volunteerService';
 import { getAllRequests } from '../services/requestService';
 import { formatDate, getSeverityColor, getStatusColor } from '../utils/helpers';
 
@@ -40,6 +42,9 @@ const Volunteers = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [selectedVolunteer, setSelectedVolunteer] = useState(null);
+  const [selectedRequestId, setSelectedRequestId] = useState('');
+  const [assigning, setAssigning] = useState(false);
 
   const loadData = useCallback(async (quiet = false) => {
     if (!quiet) setRefreshing(true);
@@ -84,6 +89,47 @@ const Volunteers = () => {
       .toLowerCase();
     return haystack.includes(search.toLowerCase());
   }), [volunteers, search, statusFilter]);
+
+  const unassignedRequests = useMemo(() => requests
+    .filter((request) => request.status === 'pending' && !request.assignedVolunteer?.volunteerId)
+    .sort((first, second) => {
+      const rank = { critical: 4, high: 3, medium: 2, low: 1 };
+      return (rank[second.severity] || 0) - (rank[first.severity] || 0) ||
+        new Date(first.createdAt) - new Date(second.createdAt);
+    }), [requests]);
+
+  const selectedRequest = unassignedRequests.find((request) => request.id === selectedRequestId);
+
+  const openAssignment = (volunteer) => {
+    setSelectedVolunteer(volunteer);
+    setSelectedRequestId('');
+  };
+
+  const closeAssignment = () => {
+    if (assigning) return;
+    setSelectedVolunteer(null);
+    setSelectedRequestId('');
+  };
+
+  const handleAssignment = async () => {
+    if (!selectedVolunteer || !selectedRequestId) {
+      toast.error('Assign করার জন্য একটি emergency request নির্বাচন করুন');
+      return;
+    }
+
+    setAssigning(true);
+    try {
+      await assignVolunteer(selectedRequestId, selectedVolunteer.id);
+      toast.success(`${selectedVolunteer.name}-কে কাজটি assign করা হয়েছে`);
+      setSelectedVolunteer(null);
+      setSelectedRequestId('');
+      await loadData(true);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'কাজ assign করা যায়নি');
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   const activeCount = volunteers.filter((volunteer) =>
     ['assigned', 'en_route', 'on_scene'].includes(volunteer.operationalStatus)
@@ -197,6 +243,11 @@ const Volunteers = () => {
                     ) : <p>No GPS location shared yet</p>}
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    {volunteer.availability && !assignment && (
+                      <Button size="sm" icon={ClipboardList} onClick={() => openAssignment(volunteer)}>
+                        Assign Work
+                      </Button>
+                    )}
                     {hasLocation && (
                       <a
                         href={`https://www.google.com/maps?q=${volunteer.location.lat},${volunteer.location.lng}`}
@@ -214,6 +265,67 @@ const Volunteers = () => {
           })}
         </div>
       )}
+
+      <Modal
+        isOpen={Boolean(selectedVolunteer)}
+        onClose={closeAssignment}
+        title="Volunteer-কে কাজ দিন"
+        size="lg"
+        closeOnOverlay={!assigning}
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeAssignment} disabled={assigning}>Cancel</Button>
+            <Button icon={ClipboardList} onClick={handleAssignment} loading={assigning} disabled={!selectedRequestId || assigning}>
+              Confirm Assignment
+            </Button>
+          </>
+        }
+      >
+        {selectedVolunteer && (
+          <div className="space-y-5">
+            <div className="rounded-lg border border-primary-200 bg-primary-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Selected volunteer</p>
+              <p className="font-semibold text-gray-900 mt-1">{selectedVolunteer.name}</p>
+              <p className="text-sm text-gray-600">{selectedVolunteer.phone} • {selectedVolunteer.email}</p>
+            </div>
+
+            {unassignedRequests.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center">
+                <p className="font-medium text-gray-900">কোনো unassigned pending request নেই</p>
+                <p className="text-sm text-gray-600 mt-2">নতুন victim request এলে এখানে automatically দেখা যাবে।</p>
+              </div>
+            ) : (
+              <>
+                <Select
+                  label="যে emergency request-এ পাঠাবেন"
+                  name="requestId"
+                  value={selectedRequestId}
+                  onChange={(event) => setSelectedRequestId(event.target.value)}
+                  placeholder="একটি pending request নির্বাচন করুন"
+                  options={unassignedRequests.map((request) => ({
+                    value: request.id,
+                    label: `${request.severity.toUpperCase()} • ${request.emergencyType} • ${request.address}`
+                  }))}
+                  required
+                />
+
+                {selectedRequest && (
+                  <div className="rounded-lg border border-gray-200 p-4">
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <Badge variant={getSeverityColor(selectedRequest.severity)}>{selectedRequest.severity.toUpperCase()}</Badge>
+                      <Badge variant="warning">PENDING</Badge>
+                    </div>
+                    <p className="font-semibold text-gray-900">{selectedRequest.emergencyType}</p>
+                    <p className="text-sm text-gray-700 mt-2">{selectedRequest.description}</p>
+                    <p className="text-sm text-gray-600 flex items-start gap-2 mt-3"><MapPin className="h-4 w-4 mt-0.5 shrink-0" />{selectedRequest.address}</p>
+                    <p className="text-sm text-gray-600 mt-2"><strong>Victim phone:</strong> {selectedRequest.phone}</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
