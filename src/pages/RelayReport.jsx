@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Radio, ShieldCheck } from 'lucide-react';
 import Card from '../components/Card';
-import Alert from '../components/Alert';
 import Button from '../components/Button';
 import Textarea from '../components/Textarea';
 import Badge from '../components/Badge';
@@ -49,13 +48,6 @@ const RelayReport = () => {
         <h1 className="text-3xl font-bold text-gray-900 flex items-center"><Radio className="h-8 w-8 mr-3 text-primary-600" />অফলাইন রিপোর্ট গ্রহণ করুন</h1>
         <p className="text-gray-600 mt-2">Victim-এর পাঠানো SIREN Relay Code এখানে দিয়ে রিপোর্টটি dashboard-এ যোগ করুন।</p>
       </div>
-
-      <Alert
-        type="info"
-        title="মাত্র ৩টি ধাপ"
-        message="১) Victim-এর message থেকে SIREN1. দিয়ে শুরু হওয়া code কপি করুন। ২) নিচে paste করে আগে রিপোর্টটি দেখুন। ৩) তথ্য ঠিক থাকলে “রিপোর্ট গ্রহণ করুন” চাপুন। Internet থাকলে সঙ্গে সঙ্গে, না থাকলে সংযোগ ফিরলে SIREN-এ sync হবে।"
-        className="mb-6"
-      />
 
       <Card>
         <Textarea
