@@ -215,30 +215,133 @@ dotenv is used for environment configuration. It keeps sensitive values such as 
 
 ## 8. System Analysis and Requirements
 
-Before implementation, the system was analyzed from both user and technical perspectives.
+Before implementation, the system was analyzed from the perspective of users, system behavior, deployment environment, and data handling. This analysis helped define what the platform must do, how it should behave, and which technical constraints must be considered during development and testing.
 
-### 8.1 Functional Requirements
+### 8.1 User Requirements
 
-The system must allow registration and login. It must support role-based access. It must allow victims to submit help requests. It must allow volunteers to view tasks and update status. It must allow officials to see and manage all requests. It must allow donors to contribute. It must show analytics and maps.
+The system is intended for four main user groups: victims, volunteers, officials, and donors. Each user group has a different goal and a different interaction pattern.
 
-### 8.2 Non-Functional Requirements
+- Victims need a fast way to submit emergency requests and track their status.
+- Volunteers need a clear list of tasks, assigned cases, and progress updates.
+- Officials need a complete operational view for monitoring, assignment, and analytics.
+- Donors need a reliable way to contribute resources and review donation-related information.
 
-The system must be responsive, secure, stable, and maintainable. The UI must load quickly. The backend must return consistent responses. The database should preserve all records accurately. The codebase must be easy to extend. The application should work on ordinary development hardware.
+The interface must therefore be simple enough for stressed users during emergencies, but structured enough for officials to manage multiple cases at once.
 
-### 8.3 User Roles
+### 8.2 Functional Requirements
 
-The platform supports four roles:
+The functional requirements describe the actual features that the system must provide.
 
-- Victim
-- Volunteer
-- Official
-- Donor
+- The system must allow user registration with role selection.
+- The system must allow user login and logout.
+- The system must support role-based access control.
+- The system must allow victims to create emergency help requests.
+- The system must allow victims to attach details such as location, severity, and description.
+- The system must allow volunteers to view available or assigned tasks.
+- The system must allow volunteers to update task progress and completion status.
+- The system must allow officials to assign volunteers to requests.
+- The system must allow officials to browse, filter, and manage all emergency requests.
+- The system must provide request tracking through different statuses such as pending, assigned, in progress, and completed.
+- The system must support donation creation and donation history.
+- The system must display map-based incident data.
+- The system must display dashboard statistics and charts for operational oversight.
+- The system must provide AI-based zone prediction for risk awareness.
+- The system must support offline local storage for request capture when the backend is unavailable.
+- The system must sync locally stored request data when connectivity returns.
 
-Each role has a different purpose and access level.
+### 8.3 Non-Functional Requirements
 
-### 8.4 Data Requirements
+The non-functional requirements describe the quality attributes that the system must satisfy.
 
-The system needs to store user data, emergency request data, volunteer profile data, donation data, and analytics data. The database design must be flexible enough to support these categories while still preserving consistency.
+- The application must be responsive and usable on mobile, tablet, and desktop screens.
+- The system must remain understandable under emergency conditions.
+- The frontend must load quickly and remain visually consistent.
+- The backend must return predictable and structured JSON responses.
+- The database must store records without losing key information.
+- The system must be maintainable and modular for future improvement.
+- The platform must be secure enough to protect personal and operational data.
+- The application must be reliable during both online and offline usage modes.
+- The system should continue to function in local network environments even when public internet is not available.
+- The code should be organized so that new features can be added without rewriting the entire application.
+
+### 8.4 Technical Requirements
+
+The project requires a modern browser, a Node.js runtime, a frontend build tool, and a database server.
+
+- Frontend: React, Vite, React Router, Tailwind CSS, Axios, Leaflet, Recharts, and supporting UI libraries.
+- Backend: Node.js, Express.js, JWT, bcryptjs, express-validator, express-rate-limit, Helmet, CORS, Morgan, Swagger tools, and dotenv.
+- Database: MongoDB with Mongoose for schema validation and persistence.
+- Development tools: npm, code editor support, and terminal-based local testing.
+- Optional network setup: local Wi-Fi, hotspot, or LAN for multi-device use without internet.
+
+These requirements ensure that the application can be developed, tested, and demonstrated in an academic environment.
+
+### 8.5 Operational Requirements
+
+The platform must behave properly under real usage conditions.
+
+- When the backend is online, the frontend should communicate with the API directly.
+- When internet is not available, the frontend should still open and allow cached or locally stored data to be viewed.
+- When a victim creates a request offline, the information should be stored locally and marked for later synchronization.
+- When network connectivity returns, pending requests should be synchronized with the backend.
+- In a local network setup, devices should be able to use the application through the local server without requiring internet access.
+
+This makes the project more practical for disaster-prone areas where internet connectivity may be unstable.
+
+### 8.6 Constraints and Assumptions
+
+Several assumptions were made during analysis.
+
+- Users are assumed to have access to a browser or mobile device.
+- Emergency request data is assumed to be entered by the victim or a person on behalf of the victim.
+- The backend server is assumed to be running when online API features are tested.
+- For offline use, the browser must first load the application once so that the app shell and service worker can be cached.
+- For local network support, the frontend and backend must be reachable within the same LAN or hotspot.
+
+The project also has constraints.
+
+- Live multi-user coordination is limited when there is no backend server available.
+- Offline mode is mainly useful for request capture, cached views, and local demo use.
+- Some features depend on external map tiles or online services unless cached or replaced by local resources.
+
+### 8.7 Data Requirements
+
+The system needs to store user data, emergency request data, volunteer profile data, donation data, and analytics-related data. The database design must be flexible enough to support these categories while still preserving consistency.
+
+In addition, the system must preserve local request records when offline so that no emergency report is lost before synchronization.
+
+The most important data elements are:
+
+- user identity and role
+- request location and coordinates
+- emergency category and severity
+- volunteer profile and availability
+- donation details and status
+- request status history
+- analytics summaries and zone predictions
+
+### 8.8 Security Requirements
+
+The platform must protect user data and prevent unauthorized access.
+
+- Passwords must be hashed before storage.
+- Protected routes must require a valid token.
+- Only the correct roles should be allowed to access sensitive actions.
+- The backend should reject invalid or incomplete input.
+- The system should apply rate limiting to reduce repeated abuse.
+
+### 8.9 Performance Requirements
+
+The application should remain usable even when the number of requests increases.
+
+- Common pages should load without noticeable delay in normal conditions.
+- Request listing should remain efficient when filters are applied.
+- Dashboard statistics should be generated without blocking the user interface.
+- Local offline data should be read and written quickly using browser storage.
+
+### 8.10 Summary of Analysis
+
+From the requirement analysis, the project was designed as a role-based emergency coordination platform with support for online operation, local network deployment, and offline-first request capture. This analysis justified the choice of a modular frontend, a REST-based backend, MongoDB storage, secure authentication, map visualization, and local caching for resilience in low-connectivity environments.
 
 ---
 

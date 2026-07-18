@@ -121,6 +121,9 @@ const VictimDashboard = () => {
                       <Badge variant={request.severity === 'critical' ? 'danger' : request.severity === 'high' ? 'warning' : 'info'}>
                         {request.severity.toUpperCase()}
                       </Badge>
+                      {request.syncStatus === 'pending' && (
+                        <Badge variant="warning">WAITING TO SYNC</Badge>
+                      )}
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{request.description}</p>
                     <div className="flex items-center text-sm text-gray-500">

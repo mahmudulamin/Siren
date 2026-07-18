@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Filter, Eye } from 'lucide-react';
+import { Search, Eye } from 'lucide-react';
 import Card from '../components/Card';
 import Table from '../components/Table';
 import Badge from '../components/Badge';
@@ -140,9 +140,14 @@ const RequestsList = () => {
       header: 'Status',
       accessor: 'status',
       render: (row) => (
-        <Badge variant={getStatusColor(row.status)} size="sm">
-          {row.status.replace('_', ' ').toUpperCase()}
-        </Badge>
+        <div className="flex flex-col items-start gap-1">
+          <Badge variant={getStatusColor(row.status)} size="sm">
+            {row.status.replace('_', ' ').toUpperCase()}
+          </Badge>
+          {row.syncStatus === 'pending' && (
+            <span className="text-xs font-medium text-amber-700">WAITING TO SYNC</span>
+          )}
+        </div>
       )
     },
     {

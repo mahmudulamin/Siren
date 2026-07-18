@@ -11,6 +11,7 @@ export const validateCreateRequest = [
     .matches(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im)
     .withMessage('Please provide a valid phone number'),
   body('email')
+    .optional({ checkFalsy: true })
     .isEmail()
     .normalizeEmail()
     .withMessage('Please provide a valid email'),
@@ -35,7 +36,11 @@ export const validateCreateRequest = [
     .withMessage('Description must be between 10 and 5000 characters'),
   body('severity')
     .isIn(['low', 'medium', 'high', 'critical'])
-    .withMessage('Severity must be one of: low, medium, high, critical')
+    .withMessage('Severity must be one of: low, medium, high, critical'),
+  body('photoUrl')
+    .optional({ nullable: true })
+    .isString()
+    .withMessage('Photo must be a URL or encoded image')
 ];
 
 export const validateUpdateRequest = [

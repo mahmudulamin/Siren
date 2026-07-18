@@ -1,9 +1,8 @@
 const LOCAL_REQUESTS_KEY = 'siren_local_requests';
+export const OFFLINE_QUEUE_CHANGED_EVENT = 'siren:offline-queue-changed';
 
 const safeParse = (value, fallback) => {
-  if (!value) {
-    return fallback;
-  }
+  if (!value) return fallback;
 
   try {
     return JSON.parse(value);
@@ -12,53 +11,121 @@ const safeParse = (value, fallback) => {
   }
 };
 
-const readRequests = () => safeParse(localStorage.getItem(LOCAL_REQUESTS_KEY), []);
+export const normalizeRequest = (request) => {
+  if (!request || typeof request !== 'object') return null;
+
+  const id = request.id || request._id;
+  if (!id) return null;
+
+  return {
+    ...request,
+    id: String(id)
+  };
+};
+
+const readRequests = () => {
+  if (typeof localStorage === 'undefined') return [];
+
+  return safeParse(localStorage.getItem(LOCAL_REQUESTS_KEY), [])
+    .map(normalizeRequest)
+    .filter(Boolean);
+};
+
+const notifyQueueChanged = (requests) => {
+  if (typeof window === 'undefined') return;
+
+  const pendingCount = requests.filter((request) => request.syncStatus === 'pending').length;
+  window.dispatchEvent(
+    new CustomEvent(OFFLINE_QUEUE_CHANGED_EVENT, { detail: { pendingCount } })
+  );
+};
 
 const writeRequests = (requests) => {
   localStorage.setItem(LOCAL_REQUESTS_KEY, JSON.stringify(requests));
+  notifyQueueChanged(requests);
 };
 
-export const getCachedRequests = () => readRequests();
+export const getCachedRequests = ({ includeDeleted = false } = {}) => {
+  const requests = readRequests();
+  return includeDeleted ? requests : requests.filter((request) => !request.deletedLocally);
+};
+
+export const getPendingRequests = () => {
+  return getCachedRequests({ includeDeleted: true }).filter(
+    (request) => request.syncStatus === 'pending'
+  );
+};
+
+export const getPendingRequestCount = () => getPendingRequests().length;
 
 export const cacheRequest = (request) => {
+  const normalizedRequest = normalizeRequest(request);
+  if (!normalizedRequest) return null;
+
   const requests = readRequests();
-  const index = requests.findIndex((item) => item.id === request.id);
+  const index = requests.findIndex((item) => item.id === normalizedRequest.id);
 
   if (index >= 0) {
-    requests[index] = {
-      ...requests[index],
-      ...request
-    };
+    requests[index] = { ...requests[index], ...normalizedRequest };
   } else {
-    requests.unshift(request);
+    requests.unshift(normalizedRequest);
   }
 
   writeRequests(requests);
-  return request;
+  return normalizedRequest;
+};
+
+export const cacheServerRequests = (serverRequests = []) => {
+  const requests = readRequests();
+
+  serverRequests.map(normalizeRequest).filter(Boolean).forEach((serverRequest) => {
+    const index = requests.findIndex((item) => item.id === serverRequest.id);
+    const syncedRequest = {
+      ...serverRequest,
+      source: 'server',
+      syncStatus: 'synced',
+      syncOperation: null,
+      syncError: null,
+      deletedLocally: false
+    };
+
+    if (index < 0) {
+      requests.push(syncedRequest);
+    } else if (requests[index].syncStatus !== 'pending') {
+      requests[index] = syncedRequest;
+    }
+  });
+
+  writeRequests(requests);
+  return getCachedRequests();
 };
 
 export const removeCachedRequest = (requestId) => {
-  const requests = readRequests().filter((request) => request.id !== requestId);
+  const id = String(requestId);
+  const requests = readRequests().filter((request) => request.id !== id);
   writeRequests(requests);
 };
 
-export const getCachedRequestById = (requestId) => {
-  return readRequests().find((request) => request.id === requestId) || null;
+export const getCachedRequestById = (requestId, { includeDeleted = false } = {}) => {
+  const id = String(requestId);
+  const request = readRequests().find((item) => item.id === id) || null;
+  return request && (includeDeleted || !request.deletedLocally) ? request : null;
 };
 
 export const buildOfflineRequest = (requestData) => {
   const timestamp = new Date().toISOString();
 
-  return {
-    id: `offline-${timestamp.replace(/[:.]/g, '-')}`,
+  return normalizeRequest({
     ...requestData,
     source: 'local',
     syncStatus: 'pending',
+    syncOperation: 'create',
+    syncError: null,
     status: requestData.status || 'pending',
     createdAt: requestData.createdAt || timestamp,
     updatedAt: timestamp,
     assignedVolunteer: requestData.assignedVolunteer || null
-  };
+  });
 };
 
 export const mergeRequests = (...requestGroups) => {
@@ -66,12 +133,13 @@ export const mergeRequests = (...requestGroups) => {
   const merged = [];
 
   requestGroups.flat().forEach((request) => {
-    if (!request?.id || seen.has(request.id)) {
+    const normalizedRequest = normalizeRequest(request);
+    if (!normalizedRequest || normalizedRequest.deletedLocally || seen.has(normalizedRequest.id)) {
       return;
     }
 
-    seen.add(request.id);
-    merged.push(request);
+    seen.add(normalizedRequest.id);
+    merged.push(normalizedRequest);
   });
 
   return merged;

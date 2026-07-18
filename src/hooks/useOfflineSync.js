@@ -13,9 +13,11 @@ export const useOfflineSync = () => {
 
     syncNow();
     window.addEventListener('online', syncNow);
+    const retryTimer = window.setInterval(syncNow, 30000);
 
     return () => {
       window.removeEventListener('online', syncNow);
+      window.clearInterval(retryTimer);
     };
   }, []);
 };

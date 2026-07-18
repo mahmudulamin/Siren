@@ -21,3 +21,8 @@ export const unwrapApiResponse = (response) => {
 export const getApiErrorMessage = (error, fallbackMessage = 'Request failed') => {
   return error?.response?.data?.message || error?.message || fallbackMessage;
 };
+
+export const isNetworkError = (error) => {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
+  return !error?.response;
+};

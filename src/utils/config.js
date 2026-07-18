@@ -48,8 +48,8 @@ export const EMERGENCY_TYPES = [
   'Flood',
   'Medical Emergency',
   'Food/Water Shortage',
-  'Shelter Needed',
-  'Rescue Operation',
+  'Shelter',
+  'Rescue',
   'Other'
 ];
 

@@ -13,18 +13,20 @@ export const createRequest = async (req, res, next) => {
       coordinates,
       emergencyType,
       description,
-      severity
+      severity,
+      photoUrl
     } = req.body;
 
     const request = new Request({
       victimName,
       phone,
-      email,
+      email: email || undefined,
       address,
       coordinates,
       emergencyType,
       description,
       severity,
+      photoUrl: photoUrl || null,
       victimId: req.user._id
     });
 

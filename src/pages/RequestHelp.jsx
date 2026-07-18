@@ -63,8 +63,8 @@ const RequestHelp = () => {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Photo size must be less than 5MB');
+      if (file.size > 1024 * 1024) {
+        toast.error('Photo size must be 1MB or less for reliable offline storage');
         return;
       }
       setPhoto(file);
@@ -129,7 +129,11 @@ const RequestHelp = () => {
       
       const response = await createRequest(requestData);
       
-      toast.success('Emergency request submitted successfully!');
+      toast.success(
+        response?.offline
+          ? 'Request saved safely on this device. It will sync automatically.'
+          : 'Emergency request submitted successfully!'
+      );
       navigate('/dashboard');
     } catch (error) {
       toast.error('Failed to submit request. Please try again.');
@@ -310,7 +314,7 @@ const RequestHelp = () => {
                       className="hidden"
                     />
                   </label>
-                  <p className="text-sm text-gray-500 mt-2">Max size: 5MB</p>
+                  <p className="text-sm text-gray-500 mt-2">Max size: 1MB (offline compatible)</p>
                 </div>
               )}
             </div>
