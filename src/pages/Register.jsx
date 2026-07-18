@@ -129,7 +129,8 @@ const Register = () => {
               options={[
                 { value: USER_ROLES.VICTIM, label: 'Victim - Need Help' },
                 { value: USER_ROLES.VOLUNTEER, label: 'Volunteer - Provide Help' },
-                { value: USER_ROLES.OFFICIAL, label: 'Official - Manage Operations' }
+                { value: USER_ROLES.OFFICIAL, label: 'Official - Manage Operations' },
+                { value: USER_ROLES.DONOR, label: 'Donor - Support Relief' }
               ]}
               error={errors.role}
               required
