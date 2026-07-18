@@ -73,7 +73,13 @@ export const validateUpdateRequest = [
   body('severity')
     .optional()
     .isIn(['low', 'medium', 'high', 'critical'])
-    .withMessage('Invalid severity')
+    .withMessage('Invalid severity'),
+  body('progressNotes')
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ max: 2000 })
+    .withMessage('Progress notes cannot exceed 2000 characters')
 ];
 
 export const validateAssignVolunteer = [
@@ -83,6 +89,12 @@ export const validateAssignVolunteer = [
   body('volunteerId')
     .isMongoId()
     .withMessage('Invalid volunteer ID')
+];
+
+export const validateVictimRequests = [
+  param('victimId')
+    .isMongoId()
+    .withMessage('Invalid victim ID')
 ];
 
 export const validateGetRequests = [

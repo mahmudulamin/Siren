@@ -31,7 +31,7 @@ const requestToTask = (request) => ({
   priority: request.severity,
   assignedAt: request.assignedVolunteer?.assignedAt || request.updatedAt,
   completedAt: request.status === 'completed' ? request.updatedAt : null,
-  notes: ''
+  notes: request.progressNotes || ''
 });
 
 const getRequests = async (filters = {}) => {
@@ -78,8 +78,8 @@ export const acceptTask = async (taskId) => {
   return { task: requestToTask(unwrapApiResponse(response)) };
 };
 
-export const updateTaskStatus = async (taskId, status) => {
-  const response = await api.put(`/requests/${taskId}`, { status });
+export const updateTaskStatus = async (taskId, status, notes = '') => {
+  const response = await api.put(`/requests/${taskId}`, { status, progressNotes: notes });
   return { task: requestToTask(unwrapApiResponse(response)) };
 };
 

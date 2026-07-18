@@ -315,10 +315,10 @@ const OfficialDashboard = () => {
   const completedRequests = requests.filter((request) => request.status === 'completed').length;
   const liveStats = {
     ...stats,
-    totalRequests: requests.length,
-    pendingRequests: requests.filter((request) => request.status === 'pending').length,
-    criticalRequests: activeRequests.filter((request) => request.severity === 'critical').length,
-    responseRate: requests.length ? ((completedRequests / requests.length) * 100).toFixed(1) : 0
+    totalRequests: stats?.totalRequests ?? requests.length,
+    pendingRequests: stats?.pendingRequests ?? requests.filter((request) => request.status === 'pending').length,
+    criticalRequests: stats?.criticalRequests ?? activeRequests.filter((request) => request.severity === 'critical').length,
+    responseRate: stats?.responseRate ?? (requests.length ? ((completedRequests / requests.length) * 100).toFixed(1) : 0)
   };
 
   if (loading && requestsLoading) return <Loader fullScreen text="Loading dashboard..." />;
@@ -338,8 +338,6 @@ const OfficialDashboard = () => {
           value={liveStats.totalRequests || 0}
           icon={AlertTriangle}
           color="primary"
-          trend="12% from last week"
-          trendUp={true}
         />
         <StatsCard
           title="Pending Requests"

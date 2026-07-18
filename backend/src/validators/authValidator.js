@@ -23,8 +23,8 @@ export const validateRegister = [
     .matches(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im)
     .withMessage('Please provide a valid phone number'),
   body('role')
-    .isIn(['victim', 'volunteer', 'official', 'donor'])
-    .withMessage('Role must be one of: victim, volunteer, official, donor')
+    .isIn(['victim', 'volunteer', 'donor'])
+    .withMessage('Public registration supports victim, volunteer, or donor accounts')
 ];
 
 export const validateLogin = [
@@ -39,6 +39,31 @@ export const validateLogin = [
   body('role')
     .isIn(['victim', 'volunteer', 'official', 'donor'])
     .withMessage('Role must be one of: victim, volunteer, official, donor')
+];
+
+export const validateProfileUpdate = [
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Name must be between 2 and 50 characters'),
+  body('phone')
+    .optional()
+    .trim()
+    .matches(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im)
+    .withMessage('Please provide a valid phone number')
+];
+
+export const validatePasswordChange = [
+  body('currentPassword')
+    .notEmpty()
+    .withMessage('Current password is required'),
+  body('newPassword')
+    .isLength({ min: 8 })
+    .withMessage('New password must be at least 8 characters long')
+    .bail()
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('New password must contain uppercase, lowercase, and a number')
 ];
 
 export const handleValidationErrors = (req, res, next) => {

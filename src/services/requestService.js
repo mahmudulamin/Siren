@@ -54,6 +54,25 @@ const requireBackendUnavailable = (error) => {
   if (!isBackendUnavailable(error)) throw error;
 };
 
+const getStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    return null;
+  }
+};
+
+const canSeePendingRequest = (request) => {
+  const user = getStoredUser();
+  if (user?.role === 'donor') return false;
+  if (user?.role === 'victim') {
+    return Boolean(request.victimId) && String(request.victimId) === String(user.id || user._id);
+  }
+  return true;
+};
+
+const visiblePendingRequests = () => getPendingRequests().filter(canSeePendingRequest);
+
 const createPayload = (request) => ({
   victimName: request.victimName,
   phone: request.phone,
@@ -73,7 +92,7 @@ const createPayload = (request) => ({
 
 const updatePayload = (request) => {
   const payload = {};
-  ['status', 'severity', 'assignedVolunteer'].forEach((field) => {
+  ['status', 'severity', 'assignedVolunteer', 'progressNotes'].forEach((field) => {
     if (request[field] !== undefined) payload[field] = request[field];
   });
   return payload;
@@ -86,8 +105,8 @@ export const getAllRequests = async (filters = {}) => {
     const serverRequests = apiData.requests || [];
     cacheServerRequests(serverRequests);
 
-    const pendingRequests = getPendingRequests();
-    const combinedRequests = mergeRequests(pendingRequests, serverRequests, getCachedRequests());
+    const pendingRequests = visiblePendingRequests();
+    const combinedRequests = mergeRequests(pendingRequests, serverRequests);
 
     return {
       ...apiData,
@@ -96,7 +115,10 @@ export const getAllRequests = async (filters = {}) => {
     };
   } catch (error) {
     requireBackendUnavailable(error);
-    const requests = applyFilters(getCachedRequests(), filters);
+    const requests = applyFilters(
+      getCachedRequests().filter((request) => request.syncStatus !== 'pending' || canSeePendingRequest(request)),
+      filters
+    );
     return { requests, total: requests.length, offline: true };
   }
 };
@@ -136,7 +158,10 @@ export const createRequest = async (requestData) => {
 
   const newRequest = buildOfflineRequest({
     id: `offline-${clientRequestId}`,
-    ...requestWithClientId
+    ...requestWithClientId,
+    victimId: getStoredUser()?.role === 'victim'
+      ? String(getStoredUser().id || getStoredUser()._id)
+      : undefined
   });
   cacheRequest(newRequest);
   return {
@@ -213,17 +238,21 @@ export const deleteRequest = async (id) => {
 };
 
 export const getRequestsByVictim = async (victimId) => {
+  const belongsToVictim = (request) => String(request.victimId || '') === String(victimId);
   try {
     const response = await api.get(`/requests/victim/${victimId}`);
     const apiData = normalizeRequestResponse(response) || {};
     cacheServerRequests(apiData.requests || []);
     return {
       ...apiData,
-      requests: mergeRequests(getPendingRequests(), apiData.requests || [], getCachedRequests())
+      requests: mergeRequests(
+        visiblePendingRequests().filter(belongsToVictim),
+        apiData.requests || []
+      )
     };
   } catch (error) {
     requireBackendUnavailable(error);
-    return { requests: getCachedRequests(), offline: true };
+    return { requests: getCachedRequests().filter(belongsToVictim), offline: true };
   }
 };
 

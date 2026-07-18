@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
   // Load user from localStorage on mount
   useEffect(() => {
     const currentUser = getCurrentUser();
-    setUser(currentUser);
+    setUser(localStorage.getItem('token') ? currentUser : null);
     setLoading(false);
   }, []);
   
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(updatedUser));
   };
   
-  const isAuthenticated = !!user;
+  const isAuthenticated = Boolean(user && localStorage.getItem('token'));
   
   const hasRole = (role) => {
     return user?.role === role;

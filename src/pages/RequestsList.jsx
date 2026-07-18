@@ -361,9 +361,11 @@ const RequestsList = () => {
                 value={selectedVolunteerId}
                 onChange={(event) => setSelectedVolunteerId(event.target.value)}
                 placeholder="Choose a registered volunteer"
-                options={volunteers.map((volunteer) => ({
+                options={volunteers
+                  .filter((volunteer) => volunteer.availability || volunteer.id === selectedVolunteerId)
+                  .map((volunteer) => ({
                   value: volunteer.id,
-                  label: `${volunteer.name} — ${volunteer.phone}${volunteer.availability ? ' (Available)' : ' (Busy)'}`
+                  label: `${volunteer.name} — ${volunteer.phone}${volunteer.availability ? ' (Available)' : ' (Currently assigned)'}`
                 }))}
                 helperText="Assignment appears immediately in the volunteer's My Tasks and in Volunteer Monitoring."
               />

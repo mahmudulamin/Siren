@@ -3,6 +3,7 @@ import {
   createRequest,
   getAllRequests,
   getRequestById,
+  getRequestsByVictim,
   updateRequest,
   deleteRequest,
   assignVolunteer
@@ -15,7 +16,8 @@ import {
   validateUpdateRequest,
   validateGetRequests,
   handleValidationErrors,
-  validateAssignVolunteer
+  validateAssignVolunteer,
+  validateVictimRequests
 } from '../validators/requestValidator.js';
 
 const router = express.Router();
@@ -91,6 +93,8 @@ router.get('/', authenticate, validateGetRequests, handleValidationErrors, getAl
  *         description: Request created successfully
  */
 router.post('/', optionalAuthenticate, apiLimiter, validateCreateRequest, handleValidationErrors, createRequest);
+
+router.get('/victim/:victimId', authenticate, validateVictimRequests, handleValidationErrors, getRequestsByVictim);
 
 /**
  * @swagger

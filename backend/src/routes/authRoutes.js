@@ -3,6 +3,8 @@ import {
   register,
   login,
   getCurrentUser,
+  updateCurrentUser,
+  changePassword,
   logout
 } from '../controllers/authController.js';
 import { authenticate } from '../middleware/auth.js';
@@ -10,6 +12,8 @@ import { authLimiter } from '../middleware/rateLimiter.js';
 import {
   validateRegister,
   validateLogin,
+  validateProfileUpdate,
+  validatePasswordChange,
   handleValidationErrors
 } from '../validators/authValidator.js';
 
@@ -38,7 +42,7 @@ const router = express.Router();
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [victim, volunteer, official, donor]
+ *                 enum: [victim, volunteer, donor]
  *     responses:
  *       201:
  *         description: Registration successful
@@ -91,6 +95,8 @@ router.post('/login', authLimiter, validateLogin, handleValidationErrors, login)
  *         description: Unauthorized
  */
 router.get('/me', authenticate, getCurrentUser);
+router.put('/me', authenticate, validateProfileUpdate, handleValidationErrors, updateCurrentUser);
+router.put('/password', authenticate, validatePasswordChange, handleValidationErrors, changePassword);
 
 /**
  * @swagger

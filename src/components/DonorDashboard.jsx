@@ -1,389 +1,108 @@
-import React, { useState, useEffect } from 'react';
-import { Heart, DollarSign, TrendingUp, Users, Package, AlertCircle, MapPin } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Heart, History, MapPin, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
+import toast from 'react-hot-toast';
+import Card from './Card';
+import Button from './Button';
+import Badge from './Badge';
+import StatsCard from './StatsCard';
+import Loader from './Loader';
 import { useAuth } from '../context/useAuth';
 import { useLiveRequests } from '../hooks/useLiveRequests';
-import Badge from '../components/Badge';
+import { getUserDonations } from '../services/donationService';
+import { formatDate } from '../utils/helpers';
 
-/**
- * Donor Dashboard Component
- * Shows donation overview, impact statistics, and current needs
- */
 const DonorDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    totalDonated: 0,
-    totalDonations: 0,
-    familiesHelped: 0,
-    livesImpacted: 0
-  });
-  const [recentDonations, setRecentDonations] = useState([]);
-  const [urgentNeeds, setUrgentNeeds] = useState([]);
+  const { requests, lastUpdated, offline } = useLiveRequests();
+  const [donations, setDonations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { requests: liveRequests, lastUpdated, offline } = useLiveRequests();
 
   useEffect(() => {
-    // Simulate fetching donor statistics
-    setTimeout(() => {
-      setStats({
-        totalDonated: 15000,
-        totalDonations: 8,
-        familiesHelped: 45,
-        livesImpacted: 180
-      });
-
-      setRecentDonations([
-        {
-          id: 1,
-          amount: 5000,
-          category: 'Food & Water Supplies',
-          date: '2024-08-20',
-          status: 'Delivered',
-          beneficiaries: 25
-        },
-        {
-          id: 2,
-          amount: 3000,
-          category: 'Medical Supplies',
-          date: '2024-08-15',
-          status: 'In Progress',
-          beneficiaries: 15
-        },
-        {
-          id: 3,
-          amount: 7000,
-          category: 'General Relief Fund',
-          date: '2024-08-10',
-          status: 'Delivered',
-          beneficiaries: 35
-        }
-      ]);
-
-      setUrgentNeeds([
-        {
-          id: 1,
-          title: 'Flood Relief - Sylhet Sadar',
-          description: '500 families urgently need food supplies after devastating floods',
-          location: 'Sylhet Sadar',
-          needed: 250000,
-          raised: 180000,
-          donors: 45,
-          deadline: '2024-08-25',
-          category: 'Food',
-          urgent: true
-        },
-        {
-          id: 2,
-          title: 'Medical Emergency - Sunamganj',
-          description: 'Medical kits and medicines for 200 flood victims',
-          location: 'Sunamganj Sadar',
-          needed: 100000,
-          raised: 65000,
-          donors: 28,
-          deadline: '2024-08-22',
-          category: 'Medical',
-          urgent: true
-        },
-        {
-          id: 3,
-          title: 'Rescue Operations - Feni',
-          description: 'Fuel and boat maintenance for ongoing rescue missions',
-          location: 'Parshuram, Feni',
-          needed: 150000,
-          raised: 120000,
-          donors: 35,
-          deadline: '2024-08-30',
-          category: 'Rescue',
-          urgent: false
-        }
-      ]);
-
-      setLoading(false);
-    }, 1000);
+    getUserDonations()
+      .then((response) => setDonations(response.donations || []))
+      .catch((error) => toast.error(error.response?.data?.message || 'Donation records could not be loaded'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Delivered':
-        return 'bg-success-100 text-success-800';
-      case 'In Progress':
-        return 'bg-warning-100 text-warning-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getProgressPercentage = (raised, needed) => {
-    return Math.min((raised / needed) * 100, 100);
-  };
-
-  const activeEmergencyRequests = liveRequests
+  const activeRequests = useMemo(() => requests
     .filter((request) => !['completed', 'cancelled'].includes(request.status))
-    .sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
+    .sort((first, second) => {
+      const rank = { critical: 4, high: 3, medium: 2, low: 1 };
+      return (rank[second.severity] || 0) - (rank[first.severity] || 0);
+    }), [requests]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
+  const totalMoney = donations.filter((item) => item.type === 'money')
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const supplyCount = donations.filter((item) => item.type === 'supply').length;
+  const completedCount = donations.filter((item) => item.status === 'completed').length;
+
+  if (loading) return <Loader fullScreen text="Loading donor dashboard..." />;
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
       <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg shadow-lg p-8 text-white">
-        <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.name || 'Donor'}! 💙</h1>
-        <p className="text-primary-100">
-          Thank you for your generosity. Your contributions are making a real difference in people's lives.
-        </p>
+        <h1 className="text-3xl font-bold mb-2">Welcome, {user?.name || 'Donor'}!</h1>
+        <p className="text-primary-100">Your recorded contributions and current emergency needs are shown below.</p>
       </div>
 
-      {/* Impact Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-br from-primary-50 to-primary-100 border-primary-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Total Donated</p>
-              <p className="text-3xl font-bold text-primary-600">৳{stats.totalDonated.toLocaleString()}</p>
-              <p className="text-xs text-gray-500 mt-1">{stats.totalDonations} donations</p>
-            </div>
-            <div className="bg-primary-600 p-4 rounded-full">
-              <DollarSign className="text-white" size={24} />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-success-50 to-success-100 border-success-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Families Helped</p>
-              <p className="text-3xl font-bold text-success-600">{stats.familiesHelped}</p>
-              <p className="text-xs text-gray-500 mt-1">Direct beneficiaries</p>
-            </div>
-            <div className="bg-success-600 p-4 rounded-full">
-              <Users className="text-white" size={24} />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-warning-50 to-warning-100 border-warning-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Lives Impacted</p>
-              <p className="text-3xl font-bold text-warning-600">{stats.livesImpacted}+</p>
-              <p className="text-xs text-gray-500 mt-1">Including families</p>
-            </div>
-            <div className="bg-warning-600 p-4 rounded-full">
-              <Heart className="text-white" size={24} />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-pink-50 to-pink-100 border-pink-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Impact Score</p>
-              <p className="text-3xl font-bold text-pink-600">95%</p>
-              <p className="text-xs text-gray-500 mt-1">Very High</p>
-            </div>
-            <div className="bg-pink-600 p-4 rounded-full">
-              <TrendingUp className="text-white" size={24} />
-            </div>
-          </div>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <StatsCard title="Money Recorded" value={`৳${totalMoney.toLocaleString()}`} icon={Heart} color="primary" />
+        <StatsCard title="Donation Records" value={donations.length} icon={History} color="info" />
+        <StatsCard title="Supply Records" value={supplyCount} icon={Package} color="warning" />
+        <StatsCard title="Completed" value={completedCount} icon={Heart} color="success" />
       </div>
 
-      {/* Quick Actions */}
       <Card title="Quick Actions">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button
-            variant="primary"
-            fullWidth
-            onClick={() => navigate('/donate')}
-            className="flex items-center justify-center gap-2"
-          >
-            <Heart size={18} />
-            Make a Donation
-          </Button>
-          <Button
-            variant="outline"
-            fullWidth
-            onClick={() => navigate('/donation-history')}
-            className="flex items-center justify-center gap-2"
-          >
-            <Package size={18} />
-            View History
-          </Button>
-          <Button
-            variant="outline"
-            fullWidth
-            onClick={() => navigate('/requests')}
-            className="flex items-center justify-center gap-2"
-          >
-            <AlertCircle size={18} />
-            Browse Needs
-          </Button>
+          <Button fullWidth onClick={() => navigate('/donate')}>Make a Donation</Button>
+          <Button variant="outline" fullWidth onClick={() => navigate('/donation-history')}>View History</Button>
+          <Button variant="outline" fullWidth onClick={() => navigate('/map')}>View Live Needs</Button>
         </div>
       </Card>
 
-      <Card title={`Live Emergency Updates (${activeEmergencyRequests.length})`}>
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <p className="text-sm text-gray-600">Current verified needs refresh automatically every 15 seconds.</p>
-          <p className="text-xs text-gray-500">
-            {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : 'Loading updates...'}
-            {offline ? ' • device-cached data' : ''}
-          </p>
-        </div>
-        {activeEmergencyRequests.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <AlertCircle className="h-10 w-10 mx-auto mb-3 text-gray-400" />
-            <p>No active emergency request right now</p>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <Card title={`Priority Emergency Needs (${activeRequests.length})`}>
+          <div className="flex justify-between gap-3 mb-4 text-xs text-gray-500">
+            <span>{offline ? 'Device-cached emergency data' : 'Live server data'}</span>
+            <span>{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : ''}</span>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {activeEmergencyRequests.slice(0, 6).map((request) => (
-              <div key={request.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <h3 className="font-semibold text-gray-900 mr-auto">{request.emergencyType}</h3>
-                  <Badge variant={request.severity === 'critical' ? 'danger' : request.severity === 'high' ? 'warning' : 'info'}>
-                    {request.severity.toUpperCase()}
-                  </Badge>
-                  <Badge variant="info">{request.status.replace('_', ' ').toUpperCase()}</Badge>
-                </div>
-                <p className="text-sm text-gray-600 mb-2">{request.description}</p>
-                <div className="flex items-center text-sm text-gray-500">
-                  <MapPin className="h-4 w-4 mr-1" />
-                  {request.address}
-                </div>
-              </div>
-            ))}
-            <Button variant="outline" fullWidth onClick={() => navigate('/map')}>View All on Live Map</Button>
-          </div>
-        )}
-      </Card>
-
-      {/* Urgent Needs */}
-      <Card title="Urgent Needs">
-        <div className="space-y-4">
-          {urgentNeeds.map((need) => (
-            <div
-              key={need.id}
-              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-gray-900">{need.title}</h3>
-                    {need.urgent && (
-                      <span className="bg-error-100 text-error-800 text-xs px-2 py-1 rounded-full font-medium">
-                        Urgent
-                      </span>
-                    )}
+          {activeRequests.length === 0 ? (
+            <div className="text-center py-8 text-gray-500"><AlertCircle className="h-10 w-10 mx-auto mb-3 text-gray-400" /><p>No active emergency request.</p></div>
+          ) : (
+            <div className="space-y-3">
+              {activeRequests.slice(0, 6).map((request) => (
+                <div key={request.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <h3 className="font-semibold text-gray-900 mr-auto">{request.emergencyType}</h3>
+                    <Badge variant={request.severity === 'critical' ? 'danger' : request.severity === 'high' ? 'warning' : 'info'}>{request.severity.toUpperCase()}</Badge>
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">{need.description}</p>
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span>📍 {need.location}</span>
-                    <span>👥 {need.donors} donors</span>
-                    <span>⏰ Deadline: {new Date(need.deadline).toLocaleDateString()}</span>
+                  <p className="text-sm text-gray-600 flex items-start gap-2"><MapPin className="h-4 w-4 mt-0.5 shrink-0" />{request.address}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card title="Recent Donation Records">
+          {donations.length === 0 ? (
+            <div className="text-center py-8 text-gray-500"><Package className="h-10 w-10 mx-auto mb-3 text-gray-400" /><p>No donation submitted yet.</p></div>
+          ) : (
+            <div className="space-y-3">
+              {donations.slice(0, 6).map((donation) => (
+                <div key={donation.id} className="flex items-start justify-between gap-4 border-b last:border-0 pb-3 last:pb-0">
+                  <div>
+                    <p className="font-medium text-gray-900">{donation.type === 'money' ? `৳${Number(donation.amount).toLocaleString()}` : `${donation.quantity} supply unit(s)`}</p>
+                    <p className="text-sm text-gray-600">{donation.category}</p>
+                    <p className="text-xs text-gray-500 mt-1">{formatDate(donation.createdAt)}</p>
                   </div>
+                  <Badge variant={donation.status === 'completed' ? 'success' : donation.status === 'failed' ? 'danger' : 'warning'}>{donation.status.toUpperCase()}</Badge>
                 </div>
-                <span className="text-xs bg-primary-100 text-primary-800 px-3 py-1 rounded-full font-medium whitespace-nowrap">
-                  {need.category}
-                </span>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="mb-3">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600 font-medium">
-                    ৳{need.raised.toLocaleString()} raised
-                  </span>
-                  <span className="text-gray-900 font-semibold">
-                    ৳{need.needed.toLocaleString()}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div
-                    className={`h-3 rounded-full ${
-                      getProgressPercentage(need.raised, need.needed) >= 80
-                        ? 'bg-success-600'
-                        : getProgressPercentage(need.raised, need.needed) >= 50
-                        ? 'bg-warning-600'
-                        : 'bg-primary-600'
-                    }`}
-                    style={{ width: `${getProgressPercentage(need.raised, need.needed)}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {getProgressPercentage(need.raised, need.needed).toFixed(0)}% funded
-                </p>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/donate')}
-                className="w-full"
-              >
-                Donate Now
-              </Button>
+              ))}
             </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Recent Donations */}
-      <Card title="Your Recent Donations">
-        <div className="space-y-3">
-          {recentDonations.map((donation) => (
-            <div
-              key={donation.id}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-primary-100 p-3 rounded-full">
-                  <DollarSign className="text-primary-600" size={20} />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900">৳{donation.amount.toLocaleString()}</h4>
-                  <p className="text-sm text-gray-600">{donation.category}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(donation.date).toLocaleDateString()} • {donation.beneficiaries} beneficiaries
-                  </p>
-                </div>
-              </div>
-              <span className={`text-xs px-3 py-1 rounded-full font-medium ${getStatusColor(donation.status)}`}>
-                {donation.status}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 text-center">
-          <Button
-            variant="link"
-            onClick={() => navigate('/donation-history')}
-          >
-            View All Donations →
-          </Button>
-        </div>
-      </Card>
-
-      {/* Transparency Note */}
-      <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="text-primary-600 mt-0.5" size={20} />
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-1">100% Transparency Guarantee</h4>
-            <p className="text-sm text-gray-600">
-              All donations are tracked in real-time with GPS verification and photo evidence. 
-              You'll receive detailed reports showing exactly how your funds were used and who benefited.
-            </p>
-          </div>
-        </div>
+          )}
+        </Card>
       </div>
     </div>
   );

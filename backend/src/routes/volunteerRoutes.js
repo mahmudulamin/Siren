@@ -44,7 +44,7 @@ const router = express.Router();
  *       200:
  *         description: Volunteers retrieved successfully
  */
-router.get('/', authenticate, validateGetVolunteers, handleValidationErrors, getAllVolunteers);
+router.get('/', authenticate, authorize('official'), validateGetVolunteers, handleValidationErrors, getAllVolunteers);
 
 /**
  * @swagger
@@ -101,7 +101,7 @@ router.put(
  *       200:
  *         description: Volunteer retrieved successfully
  */
-router.get('/:id', authenticate, getVolunteerById);
+router.get('/:id', authenticate, authorize('official'), getVolunteerById);
 
 /**
  * @swagger
@@ -141,6 +141,6 @@ router.put('/:id', authenticate, authorize('volunteer', 'official'), validateUpd
  *       200:
  *         description: Stats retrieved successfully
  */
-router.get('/:id/stats', authenticate, getVolunteerStats);
+router.get('/:id/stats', authenticate, authorize('official'), getVolunteerStats);
 
 export default router;

@@ -101,6 +101,10 @@ export const getAllRequests = async (req, res, next) => {
       ];
     }
 
+    if (req.user.role === 'victim') {
+      filter.victimId = req.user._id;
+    }
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const [requests, total] = await Promise.all([
@@ -111,8 +115,18 @@ export const getAllRequests = async (req, res, next) => {
       Request.countDocuments(filter)
     ]);
 
+    const visibleRequests = req.user.role === 'donor'
+      ? requests.map((request) => ({
+          ...request.toObject(),
+          victimName: 'Protected victim',
+          phone: null,
+          email: null,
+          victimId: undefined
+        }))
+      : requests;
+
     const response = new ApiResponse(200, {
-      requests,
+      requests: visibleRequests,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -127,6 +141,22 @@ export const getAllRequests = async (req, res, next) => {
   }
 };
 
+export const getRequestsByVictim = async (req, res, next) => {
+  try {
+    const { victimId } = req.params;
+    if (req.user.role !== 'official' &&
+      (req.user.role !== 'victim' || String(req.user._id) !== String(victimId))) {
+      throw ApiError.forbidden('You can only view your own emergency requests');
+    }
+
+    const requests = await Request.find({ victimId }).sort({ createdAt: -1 });
+    const response = new ApiResponse(200, { requests }, 'Victim requests retrieved successfully');
+    res.status(200).json(response.toJSON());
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getRequestById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -135,6 +165,22 @@ export const getRequestById = async (req, res, next) => {
 
     if (!request) {
       throw ApiError.notFound('Request not found');
+    }
+
+    if (req.user.role === 'victim' && String(request.victimId) !== String(req.user._id)) {
+      throw ApiError.forbidden('You can only view your own emergency request');
+    }
+
+    if (req.user.role === 'donor') {
+      const safeRequest = {
+        ...request.toObject(),
+        victimName: 'Protected victim',
+        phone: null,
+        email: null,
+        victimId: undefined
+      };
+      const response = new ApiResponse(200, safeRequest, 'Request retrieved successfully');
+      return res.status(200).json(response.toJSON());
     }
 
     const response = new ApiResponse(200, request, 'Request retrieved successfully');
@@ -171,9 +217,10 @@ export const updateRequest = async (req, res, next) => {
       }
 
       request.status = updates.status;
+      if (updates.progressNotes !== undefined) request.progressNotes = updates.progressNotes;
 
       if (updates.status === 'in_progress') {
-        volunteer.operationalStatus = 'on_scene';
+        volunteer.operationalStatus = 'en_route';
         volunteer.availability = false;
       } else if (updates.status === 'completed') {
         volunteer.operationalStatus = 'available';
@@ -185,6 +232,7 @@ export const updateRequest = async (req, res, next) => {
       ['status', 'severity'].forEach((field) => {
         if (updates[field] !== undefined) request[field] = updates[field];
       });
+      if (updates.progressNotes !== undefined) request.progressNotes = updates.progressNotes;
 
       if (updates.status && request.assignedVolunteer?.volunteerId) {
         const volunteer = await Volunteer.findById(request.assignedVolunteer.volunteerId);
@@ -196,7 +244,7 @@ export const updateRequest = async (req, res, next) => {
               volunteer.tasksCompleted += 1;
             }
           } else if (updates.status === 'in_progress') {
-            volunteer.operationalStatus = 'on_scene';
+            volunteer.operationalStatus = 'en_route';
             volunteer.availability = false;
           } else if (updates.status === 'assigned') {
             volunteer.operationalStatus = 'assigned';
@@ -225,11 +273,17 @@ export const deleteRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const request = await Request.findByIdAndDelete(id);
+    const request = await Request.findById(id);
 
     if (!request) {
       throw ApiError.notFound('Request not found');
     }
+
+    if (req.user.role === 'victim' && String(request.victimId) !== String(req.user._id)) {
+      throw ApiError.forbidden('You can only delete your own emergency request');
+    }
+
+    await request.deleteOne();
 
     logger.info('Request deleted', {
       requestId: id,
@@ -254,12 +308,19 @@ export const assignVolunteer = async (req, res, next) => {
       throw ApiError.notFound('Request not found');
     }
 
+    if (['completed', 'cancelled'].includes(request.status)) {
+      throw ApiError.badRequest('Completed or cancelled requests cannot be assigned');
+    }
+
     const volunteer = await Volunteer.findById(volunteerId);
     if (!volunteer) {
       throw ApiError.notFound('Volunteer not found');
     }
 
     const previousVolunteerId = request.assignedVolunteer?.volunteerId;
+    if (!volunteer.availability && String(previousVolunteerId) !== String(volunteer._id)) {
+      throw ApiError.conflict('Volunteer is currently busy or unavailable');
+    }
     if (previousVolunteerId && String(previousVolunteerId) !== String(volunteer._id)) {
       await Volunteer.findByIdAndUpdate(previousVolunteerId, {
         availability: true,

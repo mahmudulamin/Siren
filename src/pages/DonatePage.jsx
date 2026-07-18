@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Heart, DollarSign, Package, TrendingUp } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CheckCircle, Heart } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -7,339 +8,196 @@ import Select from '../components/Select';
 import Textarea from '../components/Textarea';
 import Alert from '../components/Alert';
 import { useAuth } from '../context/useAuth';
+import { createDonation, getUserDonations } from '../services/donationService';
+import { useLiveRequests } from '../hooks/useLiveRequests';
 
-/**
- * Donation Page Component
- */
+const CATEGORIES = [
+  'General Relief Fund',
+  'Food & Water Supplies',
+  'Medical Supplies & Treatment',
+  'Shelter & Rehabilitation',
+  'Rescue Operations',
+  'Emergency Reserve Fund'
+];
+
+const PAYMENT_METHODS = ['bKash', 'Nagad', 'Rocket', 'Card', 'Bank Transfer'];
+
 const DonatePage = () => {
   const { user } = useAuth();
+  const { requests } = useLiveRequests();
   const [donationType, setDonationType] = useState('money');
   const [formData, setFormData] = useState({
     amount: '',
     category: '',
-    message: '',
-    paymentMethod: 'bkash',
+    paymentMethod: 'bKash',
+    itemsText: '',
+    quantity: '1',
+    description: '',
     anonymous: false
   });
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [createdDonation, setCreatedDonation] = useState(null);
+  const [totalDonated, setTotalDonated] = useState(0);
 
-  const donationCategories = [
-    { value: 'general', label: 'General Relief Fund' },
-    { value: 'food', label: 'Food & Water Supplies' },
-    { value: 'medical', label: 'Medical Supplies & Treatment' },
-    { value: 'shelter', label: 'Shelter & Rehabilitation' },
-    { value: 'rescue', label: 'Rescue Operations' },
-    { value: 'emergency', label: 'Emergency Reserve Fund' }
-  ];
+  useEffect(() => {
+    getUserDonations()
+      .then(({ donations }) => setTotalDonated(
+        donations.filter((item) => item.type === 'money')
+          .reduce((sum, item) => sum + Number(item.amount || 0), 0)
+      ))
+      .catch(() => {});
+  }, []);
 
-  const paymentMethods = [
-    { value: 'bkash', label: 'bKash' },
-    { value: 'nagad', label: 'Nagad' },
-    { value: 'rocket', label: 'Rocket' },
-    { value: 'card', label: 'Credit/Debit Card' },
-    { value: 'bank', label: 'Bank Transfer' }
-  ];
+  const currentNeeds = useMemo(() => requests
+    .filter((request) => !['completed', 'cancelled'].includes(request.status))
+    .sort((first, second) => {
+      const rank = { critical: 4, high: 3, medium: 2, low: 1 };
+      return (rank[second.severity] || 0) - (rank[first.severity] || 0);
+    })
+    .slice(0, 5), [requests]);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setFormData((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setLoading(true);
-    setSuccess(false);
+    setCreatedDonation(null);
 
-    // Simulate donation processing
-    setTimeout(() => {
-      setLoading(false);
-      setSuccess(true);
+    try {
+      const items = formData.itemsText.split(',').map((item) => item.trim()).filter(Boolean);
+      const payload = {
+        donorName: user.name,
+        email: user.email,
+        phone: user.phone,
+        type: donationType,
+        category: formData.category,
+        description: formData.description,
+        anonymous: formData.anonymous,
+        ...(donationType === 'money'
+          ? {
+              amount: Number(formData.amount),
+              currency: 'BDT',
+              paymentMethod: formData.paymentMethod
+            }
+          : {
+              items,
+              quantity: Number(formData.quantity),
+              paymentMethod: 'Direct'
+            })
+      };
+
+      const { donation } = await createDonation(payload);
+      setCreatedDonation(donation);
+      if (donationType === 'money') {
+        setTotalDonated((current) => current + Number(donation.amount || 0));
+      }
       setFormData({
-        amount: '',
-        category: '',
-        message: '',
-        paymentMethod: 'bkash',
-        anonymous: false
+        amount: '', category: '', paymentMethod: 'bKash', itemsText: '', quantity: '1',
+        description: '', anonymous: false
       });
-    }, 2000);
-  };
-
-  const currentNeeds = [
-    {
-      title: 'Flood Relief - Sylhet',
-      description: '500 families need immediate food supplies',
-      needed: 250000,
-      raised: 180000,
-      category: 'Food'
-    },
-    {
-      title: 'Medical Emergency Fund',
-      description: 'Medical kits for 200 flood victims',
-      needed: 100000,
-      raised: 65000,
-      category: 'Medical'
-    },
-    {
-      title: 'Rescue Boat Operations',
-      description: 'Fuel and maintenance for rescue operations',
-      needed: 150000,
-      raised: 120000,
-      category: 'Rescue'
+      toast.success('Donation record submitted successfully');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Donation could not be submitted');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Make a Donation</h1>
-        <p className="text-gray-600 mt-2">
-          Your contribution helps save lives during disasters. Every donation makes a difference.
-        </p>
+        <p className="text-gray-600 mt-2">Record a monetary or supply contribution for emergency relief.</p>
       </div>
 
-      {success && (
+      {createdDonation && (
         <Alert
           type="success"
-          message="Thank you for your donation! Your contribution will help save lives."
-          dismissible
-          onClose={() => setSuccess(false)}
+          title="Donation record created"
+          message={`Transaction ID: ${createdDonation.transactionId}. Current status: ${createdDonation.status}.`}
           className="mb-6"
         />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Donation Form */}
         <div className="lg:col-span-2">
           <Card>
-            {/* Donation Type Tabs */}
-            <div className="flex gap-4 mb-6 border-b pb-4">
-              <button
-                onClick={() => setDonationType('money')}
-                className={`px-4 py-2 rounded-lg font-medium ${
-                  donationType === 'money'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                💰 Money
-              </button>
-              <button
-                onClick={() => setDonationType('supplies')}
-                className={`px-4 py-2 rounded-lg font-medium ${
-                  donationType === 'supplies'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                📦 Supplies
-              </button>
+            <div className="flex gap-3 mb-6 border-b pb-4">
+              <Button variant={donationType === 'money' ? 'primary' : 'secondary'} onClick={() => setDonationType('money')}>
+                Money
+              </Button>
+              <Button variant={donationType === 'supply' ? 'primary' : 'secondary'} onClick={() => setDonationType('supply')}>
+                Supplies
+              </Button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {donationType === 'money' ? (
                 <>
-                  {/* Amount */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Donation Amount (BDT)
-                    </label>
-                    <div className="grid grid-cols-4 gap-3 mb-3">
-                      {[500, 1000, 2500, 5000].map(amount => (
-                        <button
-                          key={amount}
-                          type="button"
-                          onClick={() => setFormData(prev => ({ ...prev, amount: amount.toString() }))}
-                          className={`py-2 px-4 rounded-lg border-2 font-medium ${
-                            formData.amount === amount.toString()
-                              ? 'border-primary-600 bg-primary-50 text-primary-600'
-                              : 'border-gray-300 hover:border-primary-600'
-                          }`}
-                        >
-                          ৳{amount}
-                        </button>
-                      ))}
-                    </div>
-                    <Input
-                      type="number"
-                      name="amount"
-                      value={formData.amount}
-                      onChange={handleChange}
-                      placeholder="Enter custom amount"
-                      required
-                      min="100"
-                    />
-                  </div>
-
-                  {/* Category */}
-                  <Select
-                    label="Donation Category"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                    options={donationCategories}
-                    required
-                  />
-
-                  {/* Payment Method */}
-                  <Select
-                    label="Payment Method"
-                    name="paymentMethod"
-                    value={formData.paymentMethod}
-                    onChange={handleChange}
-                    options={paymentMethods}
-                    required
-                  />
+                  <Input label="Donation Amount (BDT)" type="number" name="amount" value={formData.amount} onChange={handleChange} min="1" required />
+                  <Select label="Payment Method" name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} options={PAYMENT_METHODS} required />
                 </>
               ) : (
-                <>
-                  {/* Supplies Donation */}
-                  <Select
-                    label="Supply Type"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                    options={[
-                      { value: 'food', label: 'Food (Rice, Lentils, Oil)' },
-                      { value: 'water', label: 'Clean Water' },
-                      { value: 'medicine', label: 'Medicines' },
-                      { value: 'clothes', label: 'Clothes & Blankets' },
-                      { value: 'shelter', label: 'Tarpaulin & Shelter Materials' },
-                      { value: 'other', label: 'Other Supplies' }
-                    ]}
-                    required
-                  />
-
-                  <Input
-                    label="Quantity/Details"
-                    name="amount"
-                    value={formData.amount}
-                    onChange={handleChange}
-                    placeholder="e.g., 50kg rice, 100 water bottles"
-                    required
-                  />
-                </>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input label="Supply items" name="itemsText" value={formData.itemsText} onChange={handleChange} placeholder="Rice, water bottles, blankets" helperText="Separate multiple items with commas" required />
+                  <Input label="Number of packages/units" type="number" name="quantity" value={formData.quantity} onChange={handleChange} min="1" required />
+                </div>
               )}
 
-              {/* Message */}
-              <Textarea
-                label="Message (Optional)"
-                name="message"
-                value={formData.message}
-                onChange={handleChange}
-                placeholder="Leave a message of support..."
-                rows={3}
-              />
+              <Select label="Donation Category" name="category" value={formData.category} onChange={handleChange} options={CATEGORIES} required />
+              <Textarea label="Description (Optional)" name="description" value={formData.description} onChange={handleChange} rows={3} placeholder="Add delivery or contribution details..." />
 
-              {/* Anonymous */}
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  name="anonymous"
-                  checked={formData.anonymous}
-                  onChange={handleChange}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">Make this donation anonymous</span>
-              </div>
+              <label className="flex items-center text-sm text-gray-700">
+                <input type="checkbox" name="anonymous" checked={formData.anonymous} onChange={handleChange} className="rounded border-gray-300 text-primary-600" />
+                <span className="ml-2">Hide my identity from the public donation list</span>
+              </label>
 
-              {/* Submit */}
-              <Button
-                type="submit"
-                variant="primary"
-                fullWidth
-                loading={loading}
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : `Donate Now`}
-              </Button>
-
-              <p className="text-xs text-gray-500 text-center">
-                All donations are tax-deductible. You will receive a receipt via email.
-              </p>
+              <Button type="submit" fullWidth loading={loading}>Submit Donation Record</Button>
+              <p className="text-xs text-gray-500 text-center">This records your contribution in SIREN. External payment confirmation is not processed by this application.</p>
             </form>
           </Card>
         </div>
 
-        {/* Sidebar - Current Needs */}
         <div className="space-y-6">
-          <Card title="Current Needs">
-            <div className="space-y-4">
-              {currentNeeds.map((need, index) => (
-                <div key={index} className="border-b last:border-b-0 pb-4 last:pb-0">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{need.title}</h4>
-                      <p className="text-sm text-gray-600 mt-1">{need.description}</p>
-                    </div>
-                    <span className="text-xs bg-primary-100 text-primary-800 px-2 py-1 rounded">
-                      {need.category}
-                    </span>
-                  </div>
-                  <div className="mt-3">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">
-                        ৳{need.raised.toLocaleString()} raised
-                      </span>
-                      <span className="text-gray-900 font-medium">
-                        ৳{need.needed.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-success-600 h-2 rounded-full"
-                        style={{ width: `${(need.raised / need.needed) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+          <Card title="Your Recorded Impact">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Total monetary records</span>
+              <span className="text-xl font-bold text-primary-600">৳{totalDonated.toLocaleString()}</span>
             </div>
           </Card>
 
-          {/* Impact Stats */}
-          <Card title="Your Impact">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Total Donated</span>
-                <span className="text-xl font-bold text-primary-600">৳5,000</span>
+          <Card title="Current Emergency Needs">
+            {currentNeeds.length === 0 ? (
+              <p className="text-sm text-gray-500">No active emergency request right now.</p>
+            ) : (
+              <div className="space-y-4">
+                {currentNeeds.map((need) => (
+                  <div key={need.id} className="border-b last:border-0 pb-3 last:pb-0">
+                    <div className="flex items-start gap-2">
+                      <Heart className="h-4 w-4 mt-1 text-danger-600 shrink-0" />
+                      <div>
+                        <p className="font-medium text-gray-900">{need.emergencyType}</p>
+                        <p className="text-sm text-gray-600">{need.address}</p>
+                        <p className="text-xs uppercase mt-1 text-danger-600">{need.severity}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Families Helped</span>
-                <span className="text-xl font-bold text-success-600">25</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Lives Impacted</span>
-                <span className="text-xl font-bold text-primary-600">100+</span>
-              </div>
-            </div>
+            )}
           </Card>
 
-          {/* Why Donate */}
           <Card>
-            <h3 className="font-semibold text-gray-900 mb-3">Why Donate?</h3>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li className="flex items-start">
-                <span className="text-success-600 mr-2">✓</span>
-                100% of donations go directly to relief efforts
-              </li>
-              <li className="flex items-start">
-                <span className="text-success-600 mr-2">✓</span>
-                Real-time tracking of fund allocation
-              </li>
-              <li className="flex items-start">
-                <span className="text-success-600 mr-2">✓</span>
-                Transparent reporting with photos & GPS verification
-              </li>
-              <li className="flex items-start">
-                <span className="text-success-600 mr-2">✓</span>
-                Tax-deductible receipts provided
-              </li>
-            </ul>
+            <div className="flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-success-600 shrink-0" />
+              <div>
+                <h3 className="font-semibold text-gray-900">Database-backed records</h3>
+                <p className="text-sm text-gray-600 mt-1">Every submitted record receives a unique transaction ID and appears in your donation history.</p>
+              </div>
+            </div>
           </Card>
         </div>
       </div>

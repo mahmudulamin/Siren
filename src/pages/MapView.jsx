@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
-import { AlertTriangle, Navigation, RefreshCw, WifiOff } from 'lucide-react';
+import { AlertTriangle, Navigation, RefreshCw, Users, WifiOff } from 'lucide-react';
 import L from 'leaflet';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
@@ -11,6 +11,8 @@ import { useLiveRequests } from '../hooks/useLiveRequests';
 import { DEFAULT_MAP_CENTER } from '../utils/config';
 import { getSeverityColor, formatDate } from '../utils/helpers';
 import { buildLiveZones, getZoneColor, resolveRequestCoordinates } from '../utils/liveMap';
+import { getAllVolunteers } from '../services/volunteerService';
+import { useAuth } from '../context/useAuth';
 import 'leaflet/dist/leaflet.css';
 
 // Fix Leaflet default marker icons
@@ -59,6 +61,14 @@ const getMarkerIcon = (severity) => {
   });
 };
 
+const volunteerMarkerIcon = L.divIcon({
+  className: 'volunteer-marker',
+  html: '<div style="background:#7c3aed;color:white;width:32px;height:32px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-weight:700">V</div>',
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16]
+});
+
 /**
  * Component to recenter map
  */
@@ -84,12 +94,14 @@ const RecenterButton = ({ center }) => {
  * Live Map View Page
  */
 const MapView = () => {
+  const { user } = useAuth();
   const { requests, loading, offline, lastUpdated, refresh } = useLiveRequests();
   const [baseZones, setBaseZones] = useState([]);
   const [zonesLoading, setZonesLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedZone, setSelectedZone] = useState(null);
   const [mapCenter] = useState(DEFAULT_MAP_CENTER);
+  const [volunteers, setVolunteers] = useState([]);
 
   const loadZones = useCallback(async () => {
     try {
@@ -102,15 +114,28 @@ const MapView = () => {
     }
   }, []);
 
+  const loadVolunteerLocations = useCallback(async () => {
+    if (user?.role !== 'official') return;
+    try {
+      const response = await getAllVolunteers({ limit: 100 });
+      setVolunteers(response.volunteers || []);
+    } catch (error) {
+      console.error('Error loading volunteer locations:', error);
+    }
+  }, [user?.role]);
+
   useEffect(() => {
     loadZones();
+    loadVolunteerLocations();
     const timer = window.setInterval(loadZones, 30000);
+    const volunteerTimer = window.setInterval(loadVolunteerLocations, 15000);
     window.addEventListener('online', loadZones);
     return () => {
       window.clearInterval(timer);
+      window.clearInterval(volunteerTimer);
       window.removeEventListener('online', loadZones);
     };
-  }, [loadZones]);
+  }, [loadZones, loadVolunteerLocations]);
 
   const mappedRequests = useMemo(() => requests.map((request) => ({
     ...request,
@@ -126,6 +151,7 @@ const MapView = () => {
   const handleRefresh = () => {
     refresh();
     loadZones();
+    loadVolunteerLocations();
   };
   
   if (loading && zonesLoading) {
@@ -218,6 +244,21 @@ const MapView = () => {
                     </Marker>
                     </React.Fragment>
                 ))}
+
+                {volunteers
+                  .filter((volunteer) => Number.isFinite(volunteer.location?.lat) && Number.isFinite(volunteer.location?.lng))
+                  .map((volunteer) => (
+                    <Marker key={`volunteer-${volunteer.id}`} position={[volunteer.location.lat, volunteer.location.lng]} icon={volunteerMarkerIcon}>
+                      <Popup>
+                        <div className="p-2 min-w-[190px]">
+                          <h3 className="font-semibold text-gray-900">{volunteer.name}</h3>
+                          <p className="text-sm text-gray-600 mt-1">{volunteer.operationalStatus || 'available'}</p>
+                          <p className="text-xs text-gray-500 mt-2">{volunteer.phone}</p>
+                          <p className="text-xs text-gray-500">GPS shared: {formatDate(volunteer.lastLocationAt)}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
                 
                 <RecenterButton center={mapCenter} />
               </MapContainer>
@@ -253,6 +294,12 @@ const MapView = () => {
               <div className="flex items-center"><div className="w-7 h-4 rounded bg-amber-500/30 border-2 border-amber-500 mr-3"></div><span className="text-sm text-gray-700">Moderate</span></div>
               <div className="flex items-center"><div className="w-7 h-4 rounded bg-green-500/30 border-2 border-green-600 mr-3"></div><span className="text-sm text-gray-700">Safe</span></div>
             </div>
+            {user?.role === 'official' && (
+              <div className="flex items-center mt-5 pt-4 border-t border-gray-200">
+                <div className="w-4 h-4 rounded-full bg-violet-600 mr-3"></div>
+                <span className="text-sm text-gray-700">Volunteer GPS</span>
+              </div>
+            )}
           </Card>
           
           <Card title="Statistics">
@@ -281,6 +328,12 @@ const MapView = () => {
                 <p className="text-2xl font-bold text-gray-700">{unmappedRequests.length}</p>
                 <p className="text-sm text-gray-600">Reports Without Mappable Location</p>
               </div>
+              {user?.role === 'official' && (
+                <div>
+                  <p className="text-2xl font-bold text-violet-700">{volunteers.filter((volunteer) => Number.isFinite(volunteer.location?.lat) && Number.isFinite(volunteer.location?.lng)).length}</p>
+                  <p className="text-sm text-gray-600 flex items-center gap-1"><Users className="h-4 w-4" />Volunteer GPS Markers</p>
+                </div>
+              )}
             </div>
           </Card>
 
@@ -319,12 +372,9 @@ const MapView = () => {
                 <p className="text-sm text-gray-600 mb-3">{selectedRequest.description}</p>
                 <div className="text-sm text-gray-500 space-y-1">
                   <p><strong>Location:</strong> {selectedRequest.address}</p>
-                  <p><strong>Contact:</strong> {selectedRequest.phone}</p>
+                  {selectedRequest.phone && <p><strong>Contact:</strong> {selectedRequest.phone}</p>}
                   <p><strong>Submitted:</strong> {formatDate(selectedRequest.createdAt)}</p>
                 </div>
-                <Button size="sm" className="mt-4" fullWidth>
-                  View Details
-                </Button>
               </div>
             </Card>
           )}

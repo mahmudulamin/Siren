@@ -4,7 +4,10 @@ import { TrendingUp, Users, AlertTriangle, CheckCircle } from 'lucide-react';
 import Card from '../components/Card';
 import StatsCard from '../components/StatsCard';
 import Loader from '../components/Loader';
+import Badge from '../components/Badge';
+import toast from 'react-hot-toast';
 import { getDashboardStats, getAnalytics } from '../services/adminService';
+import { getAllDonations, updateDonationStatus } from '../services/donationService';
 
 /**
  * Admin Panel / Analytics Page
@@ -13,6 +16,7 @@ const AdminPanel = () => {
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [donations, setDonations] = useState([]);
   
   useEffect(() => {
     loadData();
@@ -20,16 +24,28 @@ const AdminPanel = () => {
   
   const loadData = async () => {
     try {
-      const [statsResponse, analyticsResponse] = await Promise.all([
+      const [statsResponse, analyticsResponse, donationResponse] = await Promise.all([
         getDashboardStats(),
-        getAnalytics('7d')
+        getAnalytics('7d'),
+        getAllDonations()
       ]);
       setStats(statsResponse.stats);
       setAnalytics(analyticsResponse.analytics);
+      setDonations(donationResponse.donations || []);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const changeDonationStatus = async (donationId, status) => {
+    try {
+      const { donation } = await updateDonationStatus(donationId, status);
+      setDonations((current) => current.map((item) => item.id === donation.id ? donation : item));
+      toast.success('Donation status updated');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Donation status could not be updated');
     }
   };
   
@@ -53,32 +69,24 @@ const AdminPanel = () => {
           value={stats?.totalRequests || 0}
           icon={AlertTriangle}
           color="primary"
-          trend="12% from last week"
-          trendUp={true}
         />
         <StatsCard
           title="Active Volunteers"
           value={stats?.activeVolunteers || 0}
           icon={Users}
           color="info"
-          trend="8% from last week"
-          trendUp={true}
         />
         <StatsCard
           title="Completed Tasks"
           value={stats?.completedTasks || 0}
           icon={CheckCircle}
           color="success"
-          trend="15% from last week"
-          trendUp={true}
         />
         <StatsCard
           title="Response Rate"
           value={`${stats?.responseRate || 0}%`}
           icon={TrendingUp}
           color="warning"
-          trend="3% from last week"
-          trendUp={true}
         />
       </div>
       
@@ -182,6 +190,35 @@ const AdminPanel = () => {
           </div>
         </Card>
       </div>
+
+      <Card title="Donation Management" subtitle="Verify contribution records and mark completed delivery or failed records." className="mt-8">
+        {donations.length === 0 ? (
+          <p className="text-center text-gray-500 py-8">No donation records found.</p>
+        ) : (
+          <div className="space-y-3">
+            {donations.slice(0, 25).map((donation) => (
+              <div key={donation.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-center border border-gray-200 rounded-lg p-4">
+                <div>
+                  <p className="font-semibold text-gray-900">{donation.donorName} · {donation.category}</p>
+                  <p className="text-sm text-gray-600">{donation.type === 'money' ? `${donation.currency} ${Number(donation.amount).toLocaleString()}` : `${donation.quantity} unit(s): ${(donation.items || []).join(', ')}`}</p>
+                  <p className="text-xs font-mono text-gray-500 mt-1">{donation.transactionId}</p>
+                </div>
+                <Badge variant={donation.status === 'completed' ? 'success' : donation.status === 'failed' ? 'danger' : donation.status === 'verified' ? 'info' : 'warning'}>{donation.status.toUpperCase()}</Badge>
+                <select
+                  value={donation.status}
+                  onChange={(event) => changeDonationStatus(donation.id, event.target.value)}
+                  className="input-field min-w-36"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="verified">Verified</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 };

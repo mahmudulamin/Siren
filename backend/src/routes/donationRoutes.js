@@ -7,7 +7,7 @@ import {
   updateDonationStatus,
   getDonationsByCategory
 } from '../controllers/donationController.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
 import { authorize } from '../middleware/authorize.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 import {
@@ -45,7 +45,7 @@ const router = express.Router();
  *       200:
  *         description: Donations retrieved successfully
  */
-router.get('/', validateGetDonations, handleValidationErrors, getAllDonations);
+router.get('/', optionalAuthenticate, validateGetDonations, handleValidationErrors, getAllDonations);
 
 /**
  * @swagger
@@ -79,7 +79,7 @@ router.get('/', validateGetDonations, handleValidationErrors, getAllDonations);
  *       201:
  *         description: Donation created successfully
  */
-router.post('/', apiLimiter, validateCreateDonation, handleValidationErrors, createDonation);
+router.post('/', authenticate, authorize('donor', 'official'), apiLimiter, validateCreateDonation, handleValidationErrors, createDonation);
 
 /**
  * @swagger

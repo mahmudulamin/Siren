@@ -25,6 +25,10 @@ import DonatePage from './pages/DonatePage';
 import DonationHistoryPage from './pages/DonationHistoryPage';
 import RelayReport from './pages/RelayReport';
 import Volunteers from './pages/Volunteers';
+import FAQ from './pages/FAQ';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import Profile from './pages/Profile';
 
 /**
  * Main App Component
@@ -66,6 +70,9 @@ function App() {
           <Route element={<MainLayout />}>
             <Route path="/" element={<Landing />} />
             <Route path="/emergency-help" element={<RequestHelp publicMode />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route
               path="/login"
               element={
@@ -93,6 +100,7 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="/request-help" element={<RequestHelp />} />
             <Route path="/map" element={<MapView />} />
             <Route path="/requests" element={<RequestsList />} />

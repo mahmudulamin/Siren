@@ -219,7 +219,7 @@ export const createVolunteerProfile = async (req, res, next) => {
       email: user.email,
       phone: user.phone,
       skills: req.body.skills || [],
-      availability: req.body.availability || true,
+      availability: req.body.availability ?? true,
       location: req.body.location || { lat: null, lng: null },
       bio: req.body.bio || ''
     });

@@ -79,6 +79,11 @@ export const getPendingRequests = () => {
 
 export const getPendingRequestCount = () => getPendingRequests().length;
 
+export const clearSyncedRequestCache = () => {
+  const pendingRequests = readRequests().filter((request) => request.syncStatus === 'pending');
+  writeRequests(pendingRequests);
+};
+
 export const cacheRequest = (request) => {
   const normalizedRequest = normalizeRequest(request);
   if (!normalizedRequest) return null;

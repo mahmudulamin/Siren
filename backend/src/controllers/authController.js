@@ -124,6 +124,48 @@ export const getCurrentUser = async (req, res, next) => {
   }
 };
 
+export const updateCurrentUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) throw ApiError.notFound('User not found');
+
+    const { name, phone } = req.body;
+    if (name !== undefined) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+    await user.save();
+
+    if (user.role === 'volunteer') {
+      await Volunteer.findOneAndUpdate(
+        { userId: user._id },
+        { name: user.name, phone: user.phone }
+      );
+    }
+
+    const response = new ApiResponse(200, user.toJSON(), 'Profile updated successfully');
+    res.status(200).json(response.toJSON());
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const changePassword = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) throw ApiError.notFound('User not found');
+
+    const matches = await user.comparePassword(req.body.currentPassword);
+    if (!matches) throw ApiError.badRequest('Current password is incorrect');
+
+    user.password = req.body.newPassword;
+    await user.save();
+
+    const response = new ApiResponse(200, null, 'Password changed successfully');
+    res.status(200).json(response.toJSON());
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const logout = async (req, res, next) => {
   try {
     logger.info('User logged out', { userId: req.user._id });

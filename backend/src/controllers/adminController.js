@@ -1,9 +1,7 @@
 import Request from '../models/Request.js';
 import Volunteer from '../models/Volunteer.js';
 import Donation from '../models/Donation.js';
-import User from '../models/User.js';
 import ApiResponse from '../utils/ApiResponse.js';
-import ApiError from '../utils/ApiError.js';
 
 export const getDashboardStats = async (req, res, next) => {
   try {
@@ -22,7 +20,10 @@ export const getDashboardStats = async (req, res, next) => {
       Volunteer.find(),
       Donation.find({ status: 'completed' }),
       Request.countDocuments({ status: 'completed' }),
-      Request.countDocuments({ severity: 'critical' })
+      Request.countDocuments({
+        severity: 'critical',
+        status: { $nin: ['completed', 'cancelled'] }
+      })
     ]);
 
     const completedTasks = volunteers.reduce((sum, v) => sum + v.tasksCompleted, 0);
@@ -31,10 +32,13 @@ export const getDashboardStats = async (req, res, next) => {
     const allRequests = await Request.find();
     let avgResponseTime = 0;
 
-    if (completedRequests > 0) {
+    const assignedRequests = allRequests.filter((request) => request.assignedVolunteer?.assignedAt);
+    if (assignedRequests.length > 0) {
       const responseTimes = allRequests
-        .filter(r => r.status === 'completed')
-        .map(r => (new Date(r.updatedAt) - new Date(r.createdAt)) / (1000 * 60 * 60));
+        .filter((request) => request.assignedVolunteer?.assignedAt)
+        .map((request) => (
+          new Date(request.assignedVolunteer.assignedAt) - new Date(request.createdAt)
+        ) / (1000 * 60 * 60));
       avgResponseTime = (responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length).toFixed(1);
     }
 
@@ -183,6 +187,9 @@ const getRequestsByDay = async (startDate) => {
     },
     {
       $sort: { _id: 1 }
+    },
+    {
+      $project: { _id: 0, date: '$_id', count: 1 }
     }
   ]);
 };
@@ -197,6 +204,9 @@ const getRequestsByType = async () => {
     },
     {
       $sort: { count: -1 }
+    },
+    {
+      $project: { _id: 0, type: '$_id', count: 1 }
     }
   ]);
 };
@@ -208,6 +218,9 @@ const getRequestsBySeverity = async () => {
         _id: '$severity',
         count: { $sum: 1 }
       }
+    },
+    {
+      $project: { _id: 0, severity: '$_id', count: 1 }
     }
   ]);
 };
@@ -222,7 +235,10 @@ const getVolunteerPerformance = async () => {
 const getActiveDisasters = async () => {
   const criticalZones = await Request.aggregate([
     {
-      $match: { severity: 'critical' }
+      $match: {
+        severity: 'critical',
+        status: { $nin: ['completed', 'cancelled'] }
+      }
     },
     {
       $group: {

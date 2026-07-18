@@ -1,5 +1,6 @@
 import api from './api';
-import { isBackendUnavailable, unwrapApiResponse } from './apiHelpers';
+import { unwrapApiResponse } from './apiHelpers';
+import { clearSyncedRequestCache } from './offlineStore';
 
 /**
  * Authentication Service
@@ -10,82 +11,62 @@ import { isBackendUnavailable, unwrapApiResponse } from './apiHelpers';
  * Login user
  */
 export const login = async (email, password, role) => {
-  try {
-    const response = await api.post('/auth/login', { email, password, role });
-    const apiData = unwrapApiResponse(response);
-    
-    // Store token and user data
-    if (apiData?.token) {
-      localStorage.setItem('token', apiData.token);
-      localStorage.setItem('user', JSON.stringify(apiData.user));
-    }
-    
-    return apiData;
-  } catch (error) {
-    if (!isBackendUnavailable(error)) throw error;
-    // Mock response for development
-    console.warn('API not available, using mock data');
-    const mockUser = {
-      id: '1',
-      email,
-      role,
-      name: email.split('@')[0],
-      phone: '01712345678'
-    };
-    const mockToken = 'mock-jwt-token-' + Date.now();
-    
-    localStorage.setItem('token', mockToken);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    
-    return { user: mockUser, token: mockToken };
+  const response = await api.post('/auth/login', { email, password, role });
+  const apiData = unwrapApiResponse(response);
+
+  // Store token and user data
+  if (apiData?.token) {
+    clearSyncedRequestCache();
+    localStorage.setItem('token', apiData.token);
+    localStorage.setItem('user', JSON.stringify(apiData.user));
   }
+
+  return apiData;
 };
 
 /**
  * Register new user
  */
 export const register = async (userData) => {
-  try {
-    const response = await api.post('/auth/register', userData);
-    const apiData = unwrapApiResponse(response);
-    
-    // Store token and user data
-    if (apiData?.token) {
-      localStorage.setItem('token', apiData.token);
-      localStorage.setItem('user', JSON.stringify(apiData.user));
-    }
-    
-    return apiData;
-  } catch (error) {
-    if (!isBackendUnavailable(error)) throw error;
-    // Mock response for development
-    console.warn('API not available, using mock data');
-    const mockUser = {
-      id: Date.now().toString(),
-      ...userData,
-      createdAt: new Date().toISOString()
-    };
-    const mockToken = 'mock-jwt-token-' + Date.now();
-    
-    localStorage.setItem('token', mockToken);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    
-    return { user: mockUser, token: mockToken };
+  const response = await api.post('/auth/register', userData);
+  const apiData = unwrapApiResponse(response);
+
+  // Store token and user data
+  if (apiData?.token) {
+    clearSyncedRequestCache();
+    localStorage.setItem('token', apiData.token);
+    localStorage.setItem('user', JSON.stringify(apiData.user));
   }
+
+  return apiData;
 };
 
 /**
  * Logout user
  */
 export const logout = () => {
+  clearSyncedRequestCache();
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+};
+
+export const updateProfile = async (updates) => {
+  const response = await api.put('/auth/me', updates);
+  const user = unwrapApiResponse(response);
+  localStorage.setItem('user', JSON.stringify(user));
+  return { user };
+};
+
+export const changePassword = async (currentPassword, newPassword) => {
+  const response = await api.put('/auth/password', { currentPassword, newPassword });
+  return response.data;
 };
 
 /**
  * Get current user from localStorage
  */
 export const getCurrentUser = () => {
+  if (!localStorage.getItem('token')) return null;
   const userStr = localStorage.getItem('user');
   if (userStr) {
     try {

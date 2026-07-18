@@ -1,5 +1,5 @@
 /**
- * Normalizes API responses returned by the backend and mock fallbacks.
+ * Normalizes API responses returned by the backend.
  * Backend responses are wrapped as { success, message, data }.
  */
 export const unwrapApiResponse = (response) => {

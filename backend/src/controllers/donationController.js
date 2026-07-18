@@ -66,7 +66,8 @@ export const getAllDonations = async (req, res, next) => {
       type
     } = req.query;
 
-    const filter = { anonymous: false };
+    const isOfficial = req.user?.role === 'official';
+    const filter = isOfficial ? {} : { anonymous: false };
 
     if (status) filter.status = status;
     if (category) filter.category = category;
@@ -83,8 +84,17 @@ export const getAllDonations = async (req, res, next) => {
       Donation.countDocuments(filter)
     ]);
 
+    const visibleDonations = isOfficial
+      ? donations
+      : donations.map((donation) => ({
+          ...donation.toObject(),
+          email: undefined,
+          phone: undefined,
+          donorId: undefined
+        }));
+
     const response = new ApiResponse(200, {
-      donations,
+      donations: visibleDonations,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),

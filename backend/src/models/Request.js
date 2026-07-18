@@ -72,6 +72,11 @@ const requestSchema = new mongoose.Schema(
       phone: String,
       assignedAt: Date
     },
+    progressNotes: {
+      type: String,
+      maxlength: [2000, 'Progress notes cannot exceed 2000 characters'],
+      default: ''
+    },
     photoUrl: {
       type: String,
       default: null
