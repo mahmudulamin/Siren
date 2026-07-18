@@ -10,6 +10,20 @@ import Alert from '../components/Alert';
 import { USER_ROLES } from '../utils/config';
 import { isValidEmail, isValidPhone } from '../utils/helpers';
 
+const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+
+const getBackendValidationErrors = (error) => {
+  const validationErrors = error.response?.data?.errors;
+  if (!Array.isArray(validationErrors)) return {};
+
+  return validationErrors.reduce((fieldErrors, item) => {
+    if (item?.field && item?.message && !fieldErrors[item.field]) {
+      fieldErrors[item.field] = item.message;
+    }
+    return fieldErrors;
+  }, {});
+};
+
 /**
  * Register Page Component
  */
@@ -33,6 +47,7 @@ const Register = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setApiError('');
     // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -60,8 +75,10 @@ const Register = () => {
     
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    } else if (!PASSWORD_PATTERN.test(formData.password)) {
+      newErrors.password = 'Use at least one uppercase letter, one lowercase letter, and one number';
     }
     
     if (formData.password !== formData.confirmPassword) {
@@ -86,13 +103,24 @@ const Register = () => {
     
     try {
       const { confirmPassword, ...userData } = formData;
-      const response = await register(userData);
+      const response = await register({
+        ...userData,
+        name: userData.name.trim(),
+        email: userData.email.trim().toLowerCase(),
+        phone: userData.phone.replace(/\D/g, '')
+      });
       setAuthUser(response.user);
       
       // Redirect to dashboard
       navigate('/dashboard');
     } catch (error) {
-      setApiError(error.response?.data?.message || 'Registration failed. Please try again.');
+      const backendErrors = getBackendValidationErrors(error);
+      if (Object.keys(backendErrors).length > 0) {
+        setErrors(previous => ({ ...previous, ...backendErrors }));
+        setApiError(Object.values(backendErrors).join(' '));
+      } else {
+        setApiError(error.response?.data?.message || 'Registration failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -182,6 +210,7 @@ const Register = () => {
               placeholder="Create a strong password"
               icon={Lock}
               error={errors.password}
+              helperText="Minimum 8 characters with uppercase, lowercase, and a number (example: Test1234)"
               required
             />
             

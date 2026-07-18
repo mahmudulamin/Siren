@@ -8,6 +8,7 @@ import Select from '../components/Select';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import { USER_ROLES } from '../utils/config';
+import { isValidEmail } from '../utils/helpers';
 
 /**
  * Login Page Component
@@ -29,6 +30,7 @@ const Login = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setApiError('');
     // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -38,16 +40,14 @@ const Login = () => {
   const validate = () => {
     const newErrors = {};
     
-    if (!formData.email) {
+    if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    } else if (!isValidEmail(formData.email.trim())) {
       newErrors.email = 'Invalid email format';
     }
     
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
     }
     
     if (!formData.role) {
@@ -67,13 +67,22 @@ const Login = () => {
     setLoading(true);
     
     try {
-      const response = await login(formData.email, formData.password, formData.role);
+      const response = await login(
+        formData.email.trim().toLowerCase(),
+        formData.password,
+        formData.role
+      );
       setAuthUser(response.user);
       
       // Redirect based on role
       navigate('/dashboard');
     } catch (error) {
-      setApiError(error.response?.data?.message || 'Login failed. Please try again.');
+      const message = error.response?.data?.message;
+      setApiError(
+        message === 'Invalid email or password'
+          ? 'Email or password is incorrect. Register first if you do not have an account, then select the same role used during registration.'
+          : message || 'Login failed. Please try again.'
+      );
     } finally {
       setLoading(false);
     }

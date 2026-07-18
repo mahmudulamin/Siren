@@ -2,12 +2,14 @@ import { body, validationResult } from 'express-validator';
 
 export const validateRegister = [
   body('email')
+    .trim()
     .isEmail()
     .normalizeEmail()
     .withMessage('Please provide a valid email address'),
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters long')
+    .bail()
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
   body('name')
@@ -17,6 +19,7 @@ export const validateRegister = [
     .isLength({ min: 2, max: 50 })
     .withMessage('Name must be between 2 and 50 characters'),
   body('phone')
+    .trim()
     .matches(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im)
     .withMessage('Please provide a valid phone number'),
   body('role')
@@ -26,6 +29,7 @@ export const validateRegister = [
 
 export const validateLogin = [
   body('email')
+    .trim()
     .isEmail()
     .normalizeEmail()
     .withMessage('Please provide a valid email address'),
@@ -44,7 +48,7 @@ export const handleValidationErrors = (req, res, next) => {
       success: false,
       message: 'Validation failed',
       errors: errors.array().map(err => ({
-        field: err.param,
+        field: err.path || err.param,
         message: err.msg
       }))
     });
