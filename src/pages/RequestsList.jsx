@@ -37,11 +37,13 @@ const RequestsList = () => {
   
   useEffect(() => {
     loadRequests();
+    const requestTimer = window.setInterval(loadRequests, 15000);
     if (user?.role === 'official') {
       getAllVolunteers({ limit: 100 })
         .then((response) => setVolunteers(response.volunteers || []))
         .catch(() => toast.error('Could not load registered volunteers'));
     }
+    return () => window.clearInterval(requestTimer);
   }, []);
   
   useEffect(() => {

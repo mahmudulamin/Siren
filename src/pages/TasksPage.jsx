@@ -26,6 +26,8 @@ const TasksPage = () => {
   
   useEffect(() => {
     loadTasks();
+    const timer = window.setInterval(loadTasks, 15000);
+    return () => window.clearInterval(timer);
   }, []);
   
   const loadTasks = async () => {
