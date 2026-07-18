@@ -9,6 +9,9 @@ import Select from '../components/Select';
 import Modal from '../components/Modal';
 import Loader from '../components/Loader';
 import { getAllRequests } from '../services/requestService';
+import { assignVolunteer, getAllVolunteers } from '../services/volunteerService';
+import { useAuth } from '../context/useAuth';
+import toast from 'react-hot-toast';
 import { getStatusColor, getSeverityColor, formatDate, formatPhone } from '../utils/helpers';
 import { EMERGENCY_TYPES, REQUEST_STATUS, SEVERITY_LEVELS } from '../utils/config';
 
@@ -16,6 +19,7 @@ import { EMERGENCY_TYPES, REQUEST_STATUS, SEVERITY_LEVELS } from '../utils/confi
  * Requests List Page
  */
 const RequestsList = () => {
+  const { user } = useAuth();
   const [requests, setRequests] = useState([]);
   const [filteredRequests, setFilteredRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,9 +31,17 @@ const RequestsList = () => {
   });
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [volunteers, setVolunteers] = useState([]);
+  const [selectedVolunteerId, setSelectedVolunteerId] = useState('');
+  const [assigning, setAssigning] = useState(false);
   
   useEffect(() => {
     loadRequests();
+    if (user?.role === 'official') {
+      getAllVolunteers({ limit: 100 })
+        .then((response) => setVolunteers(response.volunteers || []))
+        .catch(() => toast.error('Could not load registered volunteers'));
+    }
   }, []);
   
   useEffect(() => {
@@ -95,7 +107,26 @@ const RequestsList = () => {
   
   const viewDetails = (request) => {
     setSelectedRequest(request);
+    setSelectedVolunteerId(request.assignedVolunteer?.volunteerId
+      ? String(request.assignedVolunteer.volunteerId)
+      : '');
     setShowDetailsModal(true);
+  };
+
+  const handleAssignVolunteer = async () => {
+    if (!selectedRequest || !selectedVolunteerId) return;
+    setAssigning(true);
+    try {
+      const volunteer = volunteers.find((item) => item.id === selectedVolunteerId);
+      const { request } = await assignVolunteer(selectedRequest.id, volunteer || selectedVolunteerId);
+      setSelectedRequest(request);
+      setRequests((current) => current.map((item) => item.id === request.id ? request : item));
+      toast.success('Volunteer assigned successfully');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Volunteer could not be assigned');
+    } finally {
+      setAssigning(false);
+    }
   };
   
   const columns = [
@@ -260,9 +291,15 @@ const RequestsList = () => {
               <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
                 Close
               </Button>
-              <Button>
-                Assign Volunteer
-              </Button>
+              {user?.role === 'official' && (
+                <Button
+                  onClick={handleAssignVolunteer}
+                  disabled={!selectedVolunteerId}
+                  loading={assigning}
+                >
+                  {selectedRequest.assignedVolunteer?.volunteerId ? 'Update Assignment' : 'Assign Volunteer'}
+                </Button>
+              )}
             </>
           }
         >
@@ -314,6 +351,21 @@ const RequestsList = () => {
                 </p>
               )}
             </div>
+
+            {user?.role === 'official' && (
+              <Select
+                label="Assigned volunteer"
+                name="assignedVolunteer"
+                value={selectedVolunteerId}
+                onChange={(event) => setSelectedVolunteerId(event.target.value)}
+                placeholder="Choose a registered volunteer"
+                options={volunteers.map((volunteer) => ({
+                  value: volunteer.id,
+                  label: `${volunteer.name} — ${volunteer.phone}${volunteer.availability ? ' (Available)' : ' (Busy)'}`
+                }))}
+                helperText="Assignment appears immediately in the volunteer's My Tasks and in Volunteer Monitoring."
+              />
+            )}
             
             <div className="grid grid-cols-2 gap-4">
               <div>

@@ -14,7 +14,8 @@ import {
   validateCreateRequest,
   validateUpdateRequest,
   validateGetRequests,
-  handleValidationErrors
+  handleValidationErrors,
+  validateAssignVolunteer
 } from '../validators/requestValidator.js';
 
 const router = express.Router();
@@ -171,6 +172,13 @@ router.delete('/:id', authenticate, authorize('official', 'victim'), deleteReque
  *       200:
  *         description: Volunteer assigned successfully
  */
-router.post('/:id/assign', authenticate, authorize('official'), assignVolunteer);
+router.post(
+  '/:id/assign',
+  authenticate,
+  authorize('official'),
+  validateAssignVolunteer,
+  handleValidationErrors,
+  assignVolunteer
+);
 
 export default router;

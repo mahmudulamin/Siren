@@ -8,7 +8,7 @@ import Textarea from '../components/Textarea';
 import Modal from '../components/Modal';
 import Loader from '../components/Loader';
 import StatsCard from '../components/StatsCard';
-import { getVolunteerTasks, acceptTask, updateTaskStatus } from '../services/volunteerService';
+import { getAllTasks, getVolunteerTasks, acceptTask, updateTaskStatus } from '../services/volunteerService';
 import { getStatusColor, formatDate } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
@@ -30,7 +30,9 @@ const TasksPage = () => {
   
   const loadTasks = async () => {
     try {
-      const response = await getVolunteerTasks(user?.id || 'v1');
+      const response = user?.role === 'official'
+        ? await getAllTasks()
+        : await getVolunteerTasks();
       setTasks(response.tasks || []);
     } catch (error) {
       console.error('Error loading tasks:', error);
@@ -129,7 +131,7 @@ const TasksPage = () => {
                 <TaskCard
                   key={task.id}
                   task={task}
-                  onAccept={handleAcceptTask}
+                  onAccept={user?.role === 'volunteer' ? handleAcceptTask : undefined}
                   onUpdate={openUpdateModal}
                 />
               ))}

@@ -7,6 +7,7 @@ import Card from '../components/Card';
 import Badge from '../components/Badge';
 import Loader from '../components/Loader';
 import DonorDashboard from '../components/DonorDashboard';
+import VolunteerFieldStatus from '../components/VolunteerFieldStatus';
 import { getVolunteerTasks } from '../services/volunteerService';
 import { getDashboardStats } from '../services/adminService';
 import { getStatusColor, formatDate } from '../utils/helpers';
@@ -87,7 +88,7 @@ const VictimDashboard = () => {
         <h1 className="text-3xl font-bold text-gray-900">Welcome, {user?.name}!</h1>
         <p className="text-gray-600 mt-2">Track your emergency requests and their status</p>
       </div>
-      
+
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatsCard
@@ -207,6 +208,8 @@ const VolunteerDashboard = () => {
         <p className="text-xs text-gray-500 mt-1">Live updates every 15 seconds{lastUpdated ? ` • Updated ${lastUpdated.toLocaleTimeString()}` : ''}</p>
       </div>
       
+      <VolunteerFieldStatus />
+
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatsCard

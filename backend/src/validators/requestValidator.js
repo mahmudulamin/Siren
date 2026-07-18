@@ -76,6 +76,15 @@ export const validateUpdateRequest = [
     .withMessage('Invalid severity')
 ];
 
+export const validateAssignVolunteer = [
+  param('id')
+    .isMongoId()
+    .withMessage('Invalid request ID'),
+  body('volunteerId')
+    .isMongoId()
+    .withMessage('Invalid volunteer ID')
+];
+
 export const validateGetRequests = [
   query('page')
     .optional()
@@ -110,7 +119,7 @@ export const handleValidationErrors = (req, res, next) => {
       success: false,
       message: 'Validation failed',
       errors: errors.array().map(err => ({
-        field: err.param,
+        field: err.path || err.param,
         message: err.msg,
         value: err.value
       }))

@@ -28,6 +28,11 @@ const volunteerSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    operationalStatus: {
+      type: String,
+      enum: ['available', 'assigned', 'en_route', 'on_scene', 'unavailable'],
+      default: 'available'
+    },
     location: {
       lat: {
         type: Number,
@@ -37,6 +42,10 @@ const volunteerSchema = new mongoose.Schema(
         type: Number,
         default: null
       }
+    },
+    lastLocationAt: {
+      type: Date,
+      default: null
     },
     tasksCompleted: {
       type: Number,
@@ -67,6 +76,7 @@ const volunteerSchema = new mongoose.Schema(
 // Index for frequently queried fields
 volunteerSchema.index({ userId: 1 });
 volunteerSchema.index({ availability: 1 });
+volunteerSchema.index({ operationalStatus: 1 });
 volunteerSchema.index({ 'location.lat': 1, 'location.lng': 1 });
 
 export default mongoose.model('Volunteer', volunteerSchema);

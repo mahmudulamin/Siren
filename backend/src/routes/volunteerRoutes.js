@@ -4,13 +4,16 @@ import {
   getVolunteerById,
   updateVolunteer,
   createVolunteerProfile,
-  getVolunteerStats
+  getVolunteerStats,
+  getMyVolunteerProfile,
+  updateMyOperationalStatus
 } from '../controllers/volunteerController.js';
 import { authenticate } from '../middleware/auth.js';
 import { authorize } from '../middleware/authorize.js';
 import {
   validateUpdateVolunteer,
   validateGetVolunteers,
+  validateOperationalStatus,
   handleValidationErrors
 } from '../validators/volunteerValidator.js';
 
@@ -69,6 +72,16 @@ router.get('/', authenticate, validateGetVolunteers, handleValidationErrors, get
  *         description: Volunteer profile created successfully
  */
 router.post('/profile', authenticate, authorize('volunteer'), createVolunteerProfile);
+
+router.get('/me', authenticate, authorize('volunteer'), getMyVolunteerProfile);
+router.put(
+  '/me/status',
+  authenticate,
+  authorize('volunteer'),
+  validateOperationalStatus,
+  handleValidationErrors,
+  updateMyOperationalStatus
+);
 
 /**
  * @swagger

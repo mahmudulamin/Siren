@@ -24,6 +24,7 @@ import AIZones from './pages/AIZones';
 import DonatePage from './pages/DonatePage';
 import DonationHistoryPage from './pages/DonationHistoryPage';
 import RelayReport from './pages/RelayReport';
+import Volunteers from './pages/Volunteers';
 
 /**
  * Main App Component
@@ -96,6 +97,14 @@ function App() {
             <Route path="/map" element={<MapView />} />
             <Route path="/requests" element={<RequestsList />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route
+              path="/volunteers"
+              element={
+                <ProtectedRoute allowedRoles={['official']}>
+                  <Volunteers />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/relay-report"
               element={

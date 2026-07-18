@@ -4,8 +4,59 @@ import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import logger from '../utils/logger.js';
 
+const ensureVolunteerProfiles = async () => {
+  const users = await User.find({ role: 'volunteer', isActive: true })
+    .select('_id name email phone')
+    .lean();
+
+  if (!users.length) return;
+
+  await Volunteer.bulkWrite(
+    users.map((user) => ({
+      updateOne: {
+        filter: { userId: user._id },
+        update: {
+          $setOnInsert: {
+            userId: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            availability: true,
+            operationalStatus: 'available'
+          }
+        },
+        upsert: true
+      }
+    })),
+    { ordered: false }
+  );
+};
+
+const getOrCreateOwnProfile = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user || user.role !== 'volunteer') {
+    throw ApiError.notFound('Volunteer profile not found');
+  }
+
+  return Volunteer.findOneAndUpdate(
+    { userId: user._id },
+    {
+      $setOnInsert: {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        availability: true,
+        operationalStatus: 'available'
+      }
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+};
+
 export const getAllVolunteers = async (req, res, next) => {
   try {
+    await ensureVolunteerProfiles();
     const {
       page = 1,
       limit = 10,
@@ -45,6 +96,54 @@ export const getAllVolunteers = async (req, res, next) => {
   }
 };
 
+export const getMyVolunteerProfile = async (req, res, next) => {
+  try {
+    const volunteer = await getOrCreateOwnProfile(req.user._id);
+    await volunteer.populate('userId', 'name email phone role');
+
+    const response = new ApiResponse(200, volunteer, 'Volunteer profile retrieved successfully');
+    res.status(200).json(response.toJSON());
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateMyOperationalStatus = async (req, res, next) => {
+  try {
+    const volunteer = await getOrCreateOwnProfile(req.user._id);
+    const { operationalStatus, availability, location } = req.body;
+
+    if (operationalStatus !== undefined) {
+      volunteer.operationalStatus = operationalStatus;
+      volunteer.availability = operationalStatus === 'available';
+    } else if (availability !== undefined) {
+      volunteer.availability = availability;
+    }
+
+    if (location !== undefined) {
+      volunteer.location = {
+        lat: Number(location.lat),
+        lng: Number(location.lng)
+      };
+      volunteer.lastLocationAt = new Date();
+    }
+
+    await volunteer.save();
+    await volunteer.populate('userId', 'name email phone role');
+
+    logger.info('Volunteer field status updated', {
+      volunteerId: volunteer._id,
+      operationalStatus: volunteer.operationalStatus,
+      hasLocation: Boolean(location)
+    });
+
+    const response = new ApiResponse(200, volunteer, 'Field status updated successfully');
+    res.status(200).json(response.toJSON());
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getVolunteerById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -73,8 +172,15 @@ export const updateVolunteer = async (req, res, next) => {
       throw ApiError.notFound('Volunteer not found');
     }
 
-    // Update fields
-    Object.assign(volunteer, updates);
+    if (req.user.role === 'volunteer' && String(volunteer.userId) !== String(req.user._id)) {
+      throw ApiError.forbidden('You can only update your own volunteer profile');
+    }
+
+    const allowedFields = ['availability', 'operationalStatus', 'skills', 'location', 'bio'];
+    allowedFields.forEach((field) => {
+      if (updates[field] !== undefined) volunteer[field] = updates[field];
+    });
+    if (updates.location !== undefined) volunteer.lastLocationAt = new Date();
     await volunteer.save();
 
     logger.info('Volunteer updated', {

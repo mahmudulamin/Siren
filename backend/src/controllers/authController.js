@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import Volunteer from '../models/Volunteer.js';
 import { generateToken } from '../utils/generateToken.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
@@ -25,6 +26,23 @@ export const register = async (req, res, next) => {
     });
 
     await user.save();
+
+    if (user.role === 'volunteer') {
+      await Volunteer.findOneAndUpdate(
+        { userId: user._id },
+        {
+          $setOnInsert: {
+            userId: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            availability: true,
+            operationalStatus: 'available'
+          }
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    }
 
     // Generate token
     const token = generateToken({

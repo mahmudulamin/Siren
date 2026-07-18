@@ -1,4 +1,5 @@
 import Request from '../models/Request.js';
+import Volunteer from '../models/Volunteer.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import logger from '../utils/logger.js';
@@ -154,8 +155,57 @@ export const updateRequest = async (req, res, next) => {
       throw ApiError.notFound('Request not found');
     }
 
-    // Update fields
-    Object.assign(request, updates);
+    const previousStatus = request.status;
+
+    if (req.user.role === 'volunteer') {
+      const volunteer = await Volunteer.findOne({ userId: req.user._id });
+      const isAssigned = volunteer &&
+        String(request.assignedVolunteer?.volunteerId) === String(volunteer._id);
+
+      if (!isAssigned) {
+        throw ApiError.forbidden('You can only update a request assigned to you');
+      }
+
+      if (!['in_progress', 'completed'].includes(updates.status)) {
+        throw ApiError.badRequest('Volunteer status must be in progress or completed');
+      }
+
+      request.status = updates.status;
+
+      if (updates.status === 'in_progress') {
+        volunteer.operationalStatus = 'on_scene';
+        volunteer.availability = false;
+      } else if (updates.status === 'completed') {
+        volunteer.operationalStatus = 'available';
+        volunteer.availability = true;
+        if (previousStatus !== 'completed') volunteer.tasksCompleted += 1;
+      }
+      await volunteer.save();
+    } else {
+      ['status', 'severity'].forEach((field) => {
+        if (updates[field] !== undefined) request[field] = updates[field];
+      });
+
+      if (updates.status && request.assignedVolunteer?.volunteerId) {
+        const volunteer = await Volunteer.findById(request.assignedVolunteer.volunteerId);
+        if (volunteer) {
+          if (updates.status === 'completed' || updates.status === 'cancelled') {
+            volunteer.operationalStatus = 'available';
+            volunteer.availability = true;
+            if (updates.status === 'completed' && previousStatus !== 'completed') {
+              volunteer.tasksCompleted += 1;
+            }
+          } else if (updates.status === 'in_progress') {
+            volunteer.operationalStatus = 'on_scene';
+            volunteer.availability = false;
+          } else if (updates.status === 'assigned') {
+            volunteer.operationalStatus = 'assigned';
+            volunteer.availability = false;
+          }
+          await volunteer.save();
+        }
+      }
+    }
     await request.save();
 
     logger.info('Request updated', {
@@ -196,7 +246,7 @@ export const deleteRequest = async (req, res, next) => {
 export const assignVolunteer = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { volunteerId, volunteerName, volunteerPhone } = req.body;
+    const { volunteerId } = req.body;
 
     const request = await Request.findById(id);
 
@@ -204,15 +254,31 @@ export const assignVolunteer = async (req, res, next) => {
       throw ApiError.notFound('Request not found');
     }
 
+    const volunteer = await Volunteer.findById(volunteerId);
+    if (!volunteer) {
+      throw ApiError.notFound('Volunteer not found');
+    }
+
+    const previousVolunteerId = request.assignedVolunteer?.volunteerId;
+    if (previousVolunteerId && String(previousVolunteerId) !== String(volunteer._id)) {
+      await Volunteer.findByIdAndUpdate(previousVolunteerId, {
+        availability: true,
+        operationalStatus: 'available'
+      });
+    }
+
     request.assignedVolunteer = {
-      volunteerId,
-      name: volunteerName,
-      phone: volunteerPhone,
+      volunteerId: volunteer._id,
+      name: volunteer.name,
+      phone: volunteer.phone,
       assignedAt: new Date()
     };
     request.status = 'assigned';
 
-    await request.save();
+    volunteer.operationalStatus = 'assigned';
+    volunteer.availability = false;
+
+    await Promise.all([request.save(), volunteer.save()]);
 
     logger.info('Volunteer assigned to request', {
       requestId: id,

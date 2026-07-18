@@ -8,6 +8,10 @@ export const validateUpdateVolunteer = [
     .optional()
     .isBoolean()
     .withMessage('Availability must be a boolean'),
+  body('operationalStatus')
+    .optional()
+    .isIn(['available', 'assigned', 'en_route', 'on_scene', 'unavailable'])
+    .withMessage('Invalid operational status'),
   body('skills')
     .optional()
     .isArray()
@@ -32,6 +36,29 @@ export const validateUpdateVolunteer = [
     .withMessage('Bio cannot exceed 500 characters')
 ];
 
+export const validateOperationalStatus = [
+  body('operationalStatus')
+    .optional()
+    .isIn(['available', 'assigned', 'en_route', 'on_scene', 'unavailable'])
+    .withMessage('Invalid operational status'),
+  body('availability')
+    .optional()
+    .isBoolean()
+    .withMessage('Availability must be a boolean'),
+  body('location')
+    .optional()
+    .isObject()
+    .withMessage('Location must be an object'),
+  body('location.lat')
+    .if(body('location').exists())
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('Latitude must be between -90 and 90'),
+  body('location.lng')
+    .if(body('location').exists())
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('Longitude must be between -180 and 180')
+];
+
 export const validateGetVolunteers = [
   query('page')
     .optional()
@@ -54,7 +81,7 @@ export const handleValidationErrors = (req, res, next) => {
       success: false,
       message: 'Validation failed',
       errors: errors.array().map(err => ({
-        field: err.param,
+        field: err.path || err.param,
         message: err.msg,
         value: err.value
       }))
