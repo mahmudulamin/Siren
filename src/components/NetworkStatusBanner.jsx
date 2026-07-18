@@ -28,8 +28,8 @@ const NetworkStatusBanner = () => {
           <Wifi className="h-4 w-4" />
           <span>
             {pendingCount > 0
-              ? `Online. Synchronizing ${pendingCount} saved request${pendingCount === 1 ? '' : 's'}…`
-              : 'Online mode active. Saved requests are synchronized.'}
+              ? `Internet এসেছে—সংরক্ষিত ${pendingCount}টি রিপোর্ট SIREN-এ পাঠানো হচ্ছে…`
+              : 'Internet চালু আছে—সব সংরক্ষিত রিপোর্ট sync হয়েছে।'}
           </span>
         </div>
       </div>
@@ -41,13 +41,13 @@ const NetworkStatusBanner = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
         <div className="flex items-center gap-2">
           <WifiOff className="h-4 w-4" />
-          <span className="font-medium">Offline mode active.</span>
+          <span className="font-medium">Internet নেই—অফলাইন mode চালু আছে।</span>
         </div>
         <div className="flex items-center gap-2 text-amber-800">
           <Database className="h-4 w-4" />
           <span>
-            Requests are stored locally and will sync automatically when the connection returns.
-            {pendingCount > 0 && ` ${pendingCount} request${pendingCount === 1 ? '' : 's'} waiting.`}
+            রিপোর্ট এই device-এ নিরাপদে থাকবে এবং internet ফিরলে নিজে থেকে পাঠানো হবে।
+            {pendingCount > 0 && ` অপেক্ষায় আছে: ${pendingCount}টি রিপোর্ট।`}
           </span>
         </div>
       </div>

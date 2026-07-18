@@ -202,22 +202,31 @@ const RequestHelp = ({ publicMode = false }) => {
           <AlertTriangle className="h-8 w-8 text-danger-600 mr-3" />
           Request Emergency Help
         </h1>
-        <p className="text-gray-600 mt-2">Fill in the details below. Help will be dispatched immediately.</p>
+        <p className="text-gray-600 mt-2">Online বা offline—দুই অবস্থাতেই নিচের তথ্য দিয়ে জরুরি রিপোর্ট জমা দিন।</p>
       </div>
       
       <Alert
         type="warning"
-        title="Emergency Notice"
-        message="For life-threatening emergencies, call 999 immediately. This form is for coordinating rescue and relief operations."
+        title="জীবন-ঝুঁকির পরিস্থিতিতে"
+        message="সম্ভব হলে ৯৯৯-এ কল করুন। পাশাপাশি এই form-এ report দিলে উদ্ধার ও ত্রাণ সমন্বয় করা সহজ হবে।"
         className="mb-6"
       />
 
       <Alert
         type="info"
-        title={publicMode ? 'অফলাইনেও জরুরি রিপোর্ট পাঠান — login প্রয়োজন নেই' : 'অফলাইন জরুরি রিপোর্টিং প্রস্তুত'}
-        message="Internet না থাকলেও report জমা দিন—এটি আপনার device-এ নিরাপদে সংরক্ষিত থাকবে। দ্রুত সহায়তার জন্য Submit করার পর Nearby Share, Bluetooth, SMS অথবা Relay Code দিয়ে কাছের volunteer/official-এর সঙ্গে share করুন। সংযোগ পাওয়া মাত্র report SIREN network-এ নিজে থেকে sync হবে।"
+        title={publicMode ? 'Internet না থাকলেও রিপোর্ট করুন—login লাগবে না' : 'অফলাইন রিপোর্ট করা যাবে'}
+        message="তথ্য পূরণ করে Submit করুন। Internet না থাকলে রিপোর্টটি এই device-এ থাকবে। পরের screen থেকে SMS, Share/Nearby বা Relay Code দিয়ে কাছের volunteer/official-কে পাঠাতে পারবেন। Internet ফিরলে report নিজে থেকেই SIREN-এ sync হবে।"
         className="mb-6"
       />
+
+      <Card title="Internet না থাকলে যেভাবে সাহায্য চাইবেন" className="mb-6">
+        <ol className="space-y-3 text-sm text-gray-700">
+          <li className="flex gap-3"><span className="h-7 w-7 shrink-0 rounded-full bg-primary-100 text-primary-700 font-bold flex items-center justify-center">১</span><span><strong>নাম, ফোন ও বিস্তারিত ঠিকানা দিন।</strong> GPS না চললেও সমস্যা নেই—কাছের পরিচিত স্থানসহ ঠিকানা লিখুন।</span></li>
+          <li className="flex gap-3"><span className="h-7 w-7 shrink-0 rounded-full bg-primary-100 text-primary-700 font-bold flex items-center justify-center">২</span><span>Emergency type, পরিস্থিতির গুরুত্ব ও প্রয়োজনীয় সাহায্যের বিবরণ লিখে <strong>Submit Emergency Request</strong> চাপুন।</span></li>
+          <li className="flex gap-3"><span className="h-7 w-7 shrink-0 rounded-full bg-primary-100 text-primary-700 font-bold flex items-center justify-center">৩</span><span>Report save হওয়ার confirmation দেখলে <strong>SMS</strong> অথবা <strong>Share/Nearby</strong> দিয়ে কাছের responder-কে পাঠান।</span></li>
+          <li className="flex gap-3"><span className="h-7 w-7 shrink-0 rounded-full bg-primary-100 text-primary-700 font-bold flex items-center justify-center">৪</span><span>Share করা না গেলে <strong>Relay Code</strong> কপি বা লিখে রাখুন। Internet ফিরলে report স্বয়ংক্রিয়ভাবে sync হবে।</span></li>
+        </ol>
+      </Card>
       
       <Card>
         <form onSubmit={handleSubmit} className="space-y-6">

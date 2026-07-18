@@ -36,21 +36,21 @@ const normalizeCoordinates = (coordinates) => {
 };
 
 const validateRelayPayload = (payload) => {
-  if (!payload || payload.v !== 1) throw new Error('Unsupported SIREN relay code');
-  if (!payload.c || String(payload.c).length > 120) throw new Error('Invalid report identifier');
-  if (!payload.n || !payload.p || !payload.a || !payload.d) throw new Error('Relay report is missing required information');
-  if (!VALID_EMERGENCY_TYPES.includes(payload.t)) throw new Error('Invalid emergency type');
-  if (!VALID_SEVERITIES.includes(payload.s)) throw new Error('Invalid severity level');
+  if (!payload || payload.v !== 1) throw new Error('এই SIREN Relay Code ব্যবহার করা যাচ্ছে না');
+  if (!payload.c || String(payload.c).length > 120) throw new Error('Report ID সঠিক নয়');
+  if (!payload.n || !payload.p || !payload.a || !payload.d) throw new Error('Relay Code-এ প্রয়োজনীয় তথ্য নেই');
+  if (!VALID_EMERGENCY_TYPES.includes(payload.t)) throw new Error('জরুরি অবস্থার ধরন সঠিক নয়');
+  if (!VALID_SEVERITIES.includes(payload.s)) throw new Error('রিপোর্টের গুরুত্ব সঠিক নয়');
   if (String(payload.n).length > 100 || String(payload.p).length > 30 ||
       String(payload.a).length > 500 || String(payload.d).length > 1500) {
-    throw new Error('Relay report is too large');
+    throw new Error('Relay report-এর তথ্য অনেক বড়');
   }
   return payload;
 };
 
 export const createRelayCode = (request) => {
   const clientRequestId = request.clientRequestId || String(request.id || '').replace(/^offline-/, '');
-  if (!clientRequestId) throw new Error('Report does not have a relay identifier');
+  if (!clientRequestId) throw new Error('এই report-এর Relay ID পাওয়া যায়নি');
 
   return RELAY_PREFIX + encodeBase64Url({
     v: 1,
@@ -74,7 +74,7 @@ export const parseRelayCode = (input) => {
   if (prefixIndex < 0) throw new Error('SIREN relay code পাওয়া যায়নি');
 
   const encoded = text.slice(prefixIndex + RELAY_PREFIX.length).split(/\s/)[0].trim();
-  if (!encoded || encoded.length > 12000) throw new Error('Invalid SIREN relay code');
+  if (!encoded || encoded.length > 12000) throw new Error('SIREN Relay Code সঠিক নয়');
 
   const payload = validateRelayPayload(decodeBase64Url(encoded));
   return {
@@ -107,15 +107,15 @@ export const importRelayReport = (input) => {
 export const createRelayShareText = (request) => {
   const code = createRelayCode(request);
   return [
-    'SIREN OFFLINE EMERGENCY REPORT',
-    `Severity: ${String(request.severity || '').toUpperCase()}`,
-    `Type: ${request.emergencyType}`,
-    `Victim: ${request.victimName}`,
-    `Phone: ${request.phone}`,
-    `Address: ${request.address}`,
-    `Details: ${String(request.description || '').slice(0, 500)}`,
+    'SIREN অফলাইন জরুরি রিপোর্ট',
+    `গুরুত্ব: ${String(request.severity || '').toUpperCase()}`,
+    `ধরন: ${request.emergencyType}`,
+    `নাম: ${request.victimName}`,
+    `ফোন: ${request.phone}`,
+    `ঠিকানা: ${request.address}`,
+    `বিবরণ: ${String(request.description || '').slice(0, 500)}`,
     '',
-    'Responder: SIREN app-এর Import Offline Report page-এ নিচের code paste করুন:',
+    'Volunteer/Official: SIREN-এর “অফলাইন রিপোর্ট গ্রহণ করুন” page-এ নিচের code paste করুন:',
     code
   ].join('\n');
 };

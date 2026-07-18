@@ -24,7 +24,7 @@ const RelayReport = () => {
       return report;
     } catch (parseError) {
       setPreview(null);
-      setError(parseError.message || 'Invalid relay code');
+      setError(parseError.message || 'Relay Code সঠিক নয়');
       return null;
     }
   };
@@ -36,53 +36,53 @@ const RelayReport = () => {
     try {
       importRelayReport(relayCode);
       syncOfflineRequests().catch(() => {});
-      toast.success('Offline victim report dashboard ও map-এ যোগ হয়েছে');
+      toast.success('রিপোর্টটি গ্রহণ করা হয়েছে। Internet থাকলে এখনই, না থাকলে সংযোগ ফিরলে sync হবে।');
       navigate('/dashboard');
     } catch (importError) {
-      setError(importError.message || 'Report import করা যায়নি');
+      setError(importError.message || 'রিপোর্টটি গ্রহণ করা যায়নি');
     }
   };
 
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center"><Radio className="h-8 w-8 mr-3 text-primary-600" />Import Offline Report</h1>
-        <p className="text-gray-600 mt-2">Victim-এর device থেকে পাওয়া SIREN relay code import করুন।</p>
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center"><Radio className="h-8 w-8 mr-3 text-primary-600" />অফলাইন রিপোর্ট গ্রহণ করুন</h1>
+        <p className="text-gray-600 mt-2">Victim-এর পাঠানো SIREN Relay Code এখানে দিয়ে রিপোর্টটি dashboard-এ যোগ করুন।</p>
       </div>
 
       <Alert
         type="info"
-        title="Store-and-forward rescue relay"
-        message="Import করার সঙ্গে সঙ্গে report এই responder device-এর dashboard ও map-এ দেখা যাবে। এই device internet পেলে report server-এ sync হবে এবং অন্য responders-ও দেখতে পারবে।"
+        title="মাত্র ৩টি ধাপ"
+        message="১) Victim-এর message থেকে SIREN1. দিয়ে শুরু হওয়া code কপি করুন। ২) নিচে paste করে আগে রিপোর্টটি দেখুন। ৩) তথ্য ঠিক থাকলে “রিপোর্ট গ্রহণ করুন” চাপুন। Internet থাকলে সঙ্গে সঙ্গে, না থাকলে সংযোগ ফিরলে SIREN-এ sync হবে।"
         className="mb-6"
       />
 
       <Card>
         <Textarea
-          label="SIREN Relay Code বা সম্পূর্ণ shared message"
+          label="Victim-এর Relay Code বা সম্পূর্ণ message"
           value={relayCode}
           onChange={(event) => { setRelayCode(event.target.value); setPreview(null); setError(''); }}
-          placeholder="SIREN1. দিয়ে শুরু হওয়া code paste করুন"
+          placeholder="এখানে SIREN1. দিয়ে শুরু হওয়া code paste করুন"
           rows={8}
           error={error}
         />
         <div className="flex flex-col sm:flex-row gap-3 mt-4">
-          <Button onClick={validateCode} variant="secondary" fullWidth>Check Report</Button>
-          <Button onClick={handleImport} icon={ShieldCheck} fullWidth>Import to Dashboard</Button>
+          <Button onClick={validateCode} variant="secondary" fullWidth>আগে রিপোর্টটি দেখুন</Button>
+          <Button onClick={handleImport} icon={ShieldCheck} fullWidth>রিপোর্ট গ্রহণ করুন</Button>
         </div>
       </Card>
 
       {preview && (
-        <Card title="Report Preview" className="mt-6">
+        <Card title="রিপোর্টের তথ্য যাচাই করুন" className="mt-6">
           <div className="flex flex-wrap gap-2 mb-3">
             <Badge variant={preview.severity === 'critical' ? 'danger' : preview.severity === 'high' ? 'warning' : 'info'}>{preview.severity.toUpperCase()}</Badge>
             <Badge variant="info">{preview.emergencyType}</Badge>
           </div>
           <div className="space-y-2 text-sm">
-            <p><strong>Victim:</strong> {preview.victimName}</p>
-            <p><strong>Phone:</strong> {preview.phone}</p>
-            <p><strong>Address:</strong> {preview.address}</p>
-            <p><strong>Details:</strong> {preview.description}</p>
+            <p><strong>Victim-এর নাম:</strong> {preview.victimName}</p>
+            <p><strong>ফোন:</strong> {preview.phone}</p>
+            <p><strong>ঠিকানা:</strong> {preview.address}</p>
+            <p><strong>জরুরি বিবরণ:</strong> {preview.description}</p>
           </div>
         </Card>
       )}
