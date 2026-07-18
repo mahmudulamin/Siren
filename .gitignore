@@ -12,6 +12,7 @@ node_modules
 
 # Misc
 .DS_Store
+.tools/
 .env.local
 .env.development.local
 .env.test.local
