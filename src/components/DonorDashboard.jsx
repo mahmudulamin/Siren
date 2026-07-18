@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, DollarSign, TrendingUp, Users, Package, AlertCircle } from 'lucide-react';
+import { Heart, DollarSign, TrendingUp, Users, Package, AlertCircle, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { useAuth } from '../context/useAuth';
+import { useLiveRequests } from '../hooks/useLiveRequests';
+import Badge from '../components/Badge';
 
 /**
  * Donor Dashboard Component
@@ -21,6 +23,7 @@ const DonorDashboard = () => {
   const [recentDonations, setRecentDonations] = useState([]);
   const [urgentNeeds, setUrgentNeeds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { requests: liveRequests, lastUpdated, offline } = useLiveRequests();
 
   useEffect(() => {
     // Simulate fetching donor statistics
@@ -116,6 +119,10 @@ const DonorDashboard = () => {
   const getProgressPercentage = (raised, needed) => {
     return Math.min((raised / needed) * 100, 100);
   };
+
+  const activeEmergencyRequests = liveRequests
+    .filter((request) => !['completed', 'cancelled'].includes(request.status))
+    .sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
 
   if (loading) {
     return (
@@ -221,6 +228,42 @@ const DonorDashboard = () => {
             Browse Needs
           </Button>
         </div>
+      </Card>
+
+      <Card title={`Live Emergency Updates (${activeEmergencyRequests.length})`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <p className="text-sm text-gray-600">Current verified needs refresh automatically every 15 seconds.</p>
+          <p className="text-xs text-gray-500">
+            {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : 'Loading updates...'}
+            {offline ? ' • device-cached data' : ''}
+          </p>
+        </div>
+        {activeEmergencyRequests.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <AlertCircle className="h-10 w-10 mx-auto mb-3 text-gray-400" />
+            <p>No active emergency request right now</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {activeEmergencyRequests.slice(0, 6).map((request) => (
+              <div key={request.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <h3 className="font-semibold text-gray-900 mr-auto">{request.emergencyType}</h3>
+                  <Badge variant={request.severity === 'critical' ? 'danger' : request.severity === 'high' ? 'warning' : 'info'}>
+                    {request.severity.toUpperCase()}
+                  </Badge>
+                  <Badge variant="info">{request.status.replace('_', ' ').toUpperCase()}</Badge>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{request.description}</p>
+                <div className="flex items-center text-sm text-gray-500">
+                  <MapPin className="h-4 w-4 mr-1" />
+                  {request.address}
+                </div>
+              </div>
+            ))}
+            <Button variant="outline" fullWidth onClick={() => navigate('/map')}>View All on Live Map</Button>
+          </div>
+        )}
       </Card>
 
       {/* Urgent Needs */}

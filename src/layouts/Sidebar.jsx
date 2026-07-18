@@ -11,6 +11,7 @@ import {
   HelpCircle,
   Heart,
   History,
+  Radio,
   X
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
@@ -35,7 +36,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         { path: '/request-help', icon: HelpCircle, label: 'Request Help' }
       ],
       volunteer: [
-        { path: '/tasks', icon: ClipboardList, label: 'My Tasks' }
+        { path: '/tasks', icon: ClipboardList, label: 'My Tasks' },
+        { path: '/relay-report', icon: Radio, label: 'Import Offline Report' }
       ],
       donor: [
         { path: '/donate', icon: Heart, label: 'Make Donation' },
@@ -43,6 +45,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       ],
       official: [
         { path: '/tasks', icon: ClipboardList, label: 'Task Management' },
+        { path: '/relay-report', icon: Radio, label: 'Import Offline Report' },
         { path: '/volunteers', icon: Users, label: 'Volunteers' },
         { path: '/admin', icon: BarChart3, label: 'Admin Panel' },
         { path: '/ai-zones', icon: AlertCircle, label: 'AI Predictions' }

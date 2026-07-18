@@ -307,7 +307,8 @@ const RequestsList = () => {
             <div>
               <p className="text-sm text-gray-600 mb-1">Location</p>
               <p className="text-gray-900">{selectedRequest.address}</p>
-              {selectedRequest.coordinates && (
+              {Number.isFinite(selectedRequest.coordinates?.lat) &&
+                Number.isFinite(selectedRequest.coordinates?.lng) && (
                 <p className="text-sm text-gray-500 mt-1">
                   Coordinates: {selectedRequest.coordinates.lat.toFixed(6)}, {selectedRequest.coordinates.lng.toFixed(6)}
                 </p>

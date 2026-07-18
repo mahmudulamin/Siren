@@ -19,10 +19,16 @@ export const validateCreateRequest = [
     .trim()
     .notEmpty()
     .withMessage('Address is required'),
+  body('coordinates')
+    .optional({ nullable: true })
+    .isObject()
+    .withMessage('Coordinates must be an object'),
   body('coordinates.lat')
+    .optional({ nullable: true })
     .isFloat({ min: -90, max: 90 })
     .withMessage('Latitude must be between -90 and 90'),
   body('coordinates.lng')
+    .optional({ nullable: true })
     .isFloat({ min: -180, max: 180 })
     .withMessage('Longitude must be between -180 and 180'),
   body('emergencyType')
@@ -40,7 +46,16 @@ export const validateCreateRequest = [
   body('photoUrl')
     .optional({ nullable: true })
     .isString()
-    .withMessage('Photo must be a URL or encoded image')
+    .withMessage('Photo must be a URL or encoded image'),
+  body('clientRequestId')
+    .optional()
+    .isString()
+    .isLength({ min: 6, max: 120 })
+    .withMessage('Invalid client request ID'),
+  body('locationSource')
+    .optional()
+    .isIn(['gps', 'manual', 'address'])
+    .withMessage('Invalid location source')
 ];
 
 export const validateUpdateRequest = [

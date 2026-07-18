@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Circle, Popup } from 'react-leaflet';
 import { AlertTriangle, TrendingUp, Shield } from 'lucide-react';
 import Card from '../components/Card';
@@ -7,39 +7,40 @@ import Loader from '../components/Loader';
 import Alert from '../components/Alert';
 import { getZonePredictions } from '../services/adminService';
 import { DEFAULT_MAP_CENTER } from '../utils/config';
+import { useLiveRequests } from '../hooks/useLiveRequests';
+import { buildLiveZones, getZoneColor } from '../utils/liveMap';
 import 'leaflet/dist/leaflet.css';
 
 /**
  * AI Zone Prediction Page
  */
 const AIZones = () => {
-  const [zones, setZones] = useState([]);
+  const [baseZones, setBaseZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedZone, setSelectedZone] = useState(null);
+  const { requests, loading: requestsLoading, lastUpdated } = useLiveRequests();
   
-  useEffect(() => {
-    loadZones();
-  }, []);
-  
-  const loadZones = async () => {
+  const loadZones = useCallback(async () => {
     try {
       const response = await getZonePredictions();
-      setZones(response.zones || []);
+      setBaseZones(response.zones || []);
     } catch (error) {
       console.error('Error loading zones:', error);
     } finally {
       setLoading(false);
     }
-  };
-  
-  const getZoneColor = (severity) => {
-    const colors = {
-      critical: '#dc2626',
-      moderate: '#f59e0b',
-      safe: '#22c55e'
-    };
-    return colors[severity] || colors.safe;
-  };
+  }, []);
+
+  useEffect(() => {
+    loadZones();
+    const timer = window.setInterval(loadZones, 30000);
+    return () => window.clearInterval(timer);
+  }, [loadZones]);
+
+  const zones = useMemo(
+    () => buildLiveZones(baseZones, requests),
+    [baseZones, requests]
+  );
   
   const getZoneBadgeVariant = (severity) => {
     const variants = {
@@ -60,7 +61,7 @@ const AIZones = () => {
   const moderateZones = zones.filter(z => z.severity === 'moderate');
   const safeZones = zones.filter(z => z.severity === 'safe');
   
-  if (loading) {
+  if (loading && requestsLoading) {
     return <Loader fullScreen text="Loading AI predictions..." />;
   }
   
@@ -68,7 +69,8 @@ const AIZones = () => {
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">AI Zone Predictions</h1>
-        <p className="text-gray-600 mt-2">Machine learning-powered disaster severity assessment</p>
+        <p className="text-gray-600 mt-2">Risk zones automatically recalculated from current emergency reports</p>
+        <p className="text-xs text-gray-500 mt-1">Refreshes every 15 seconds{lastUpdated ? ` • Updated ${lastUpdated.toLocaleTimeString()}` : ''}</p>
       </div>
       
       {criticalZones.length > 0 && (
@@ -202,7 +204,7 @@ const AIZones = () => {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Affected Population</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {selectedZone.affectedPopulation.toLocaleString()}
+                    {(selectedZone.affectedPopulation || 0).toLocaleString()}
                   </p>
                 </div>
                 
@@ -216,7 +218,7 @@ const AIZones = () => {
                 <div>
                   <p className="text-sm text-gray-600 mb-2">Recommendations</p>
                   <ul className="space-y-2">
-                    {selectedZone.recommendations.map((rec, idx) => (
+                    {(selectedZone.recommendations || ['Verify reports', 'Alert nearby volunteers', 'Coordinate emergency response']).map((rec, idx) => (
                       <li key={idx} className="text-sm text-gray-900 flex items-start">
                         <span className="text-primary-600 mr-2">•</span>
                         {rec}
@@ -273,7 +275,7 @@ const AIZones = () => {
                     <div className="flex items-center text-xs text-gray-600">
                       <span>Risk: {zone.riskScore}/100</span>
                       <span className="mx-2">•</span>
-                      <span>{zone.affectedPopulation.toLocaleString()} affected</span>
+                      <span>{(zone.affectedPopulation || 0).toLocaleString()} affected</span>
                     </div>
                   </div>
                 );

@@ -23,6 +23,7 @@ import AdminPanel from './pages/AdminPanel';
 import AIZones from './pages/AIZones';
 import DonatePage from './pages/DonatePage';
 import DonationHistoryPage from './pages/DonationHistoryPage';
+import RelayReport from './pages/RelayReport';
 
 /**
  * Main App Component
@@ -63,6 +64,7 @@ function App() {
           {/* Public Routes with MainLayout */}
           <Route element={<MainLayout />}>
             <Route path="/" element={<Landing />} />
+            <Route path="/emergency-help" element={<RequestHelp publicMode />} />
             <Route
               path="/login"
               element={
@@ -94,6 +96,14 @@ function App() {
             <Route path="/map" element={<MapView />} />
             <Route path="/requests" element={<RequestsList />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route
+              path="/relay-report"
+              element={
+                <ProtectedRoute allowedRoles={['volunteer', 'official']}>
+                  <RelayReport />
+                </ProtectedRoute>
+              }
+            />
             
             {/* Donor routes */}
             <Route

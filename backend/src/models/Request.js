@@ -24,13 +24,11 @@ const requestSchema = new mongoose.Schema(
     coordinates: {
       lat: {
         type: Number,
-        required: [true, 'Latitude is required'],
         min: [-90, 'Latitude must be between -90 and 90'],
         max: [90, 'Latitude must be between -90 and 90']
       },
       lng: {
         type: Number,
-        required: [true, 'Longitude is required'],
         min: [-180, 'Longitude must be between -180 and 180'],
         max: [180, 'Longitude must be between -180 and 180']
       }
@@ -78,6 +76,15 @@ const requestSchema = new mongoose.Schema(
       type: String,
       default: null
     },
+    clientRequestId: {
+      type: String,
+      trim: true
+    },
+    locationSource: {
+      type: String,
+      enum: ['gps', 'manual', 'address'],
+      default: 'address'
+    },
     victimId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
@@ -94,5 +101,6 @@ requestSchema.index({ severity: 1 });
 requestSchema.index({ emergencyType: 1 });
 requestSchema.index({ 'coordinates.lat': 1, 'coordinates.lng': 1 });
 requestSchema.index({ createdAt: -1 });
+requestSchema.index({ clientRequestId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('Request', requestSchema);

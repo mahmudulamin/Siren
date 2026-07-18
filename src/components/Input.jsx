@@ -15,7 +15,8 @@ const Input = ({
   disabled = false,
   icon: Icon,
   helperText,
-  className = ''
+  className = '',
+  ...inputProps
 }) => {
   return (
     <div className={`w-full ${className}`}>
@@ -42,6 +43,7 @@ const Input = ({
           placeholder={placeholder}
           disabled={disabled}
           required={required}
+          {...inputProps}
           className={`
             input-field
             ${Icon ? 'pl-10' : ''}

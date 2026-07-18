@@ -1,0 +1,93 @@
+import React, { useState } from 'react';
+import { Radio, ShieldCheck } from 'lucide-react';
+import Card from '../components/Card';
+import Alert from '../components/Alert';
+import Button from '../components/Button';
+import Textarea from '../components/Textarea';
+import Badge from '../components/Badge';
+import { importRelayReport, parseRelayCode } from '../services/relayService';
+import { syncOfflineRequests } from '../services/requestService';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+
+const RelayReport = () => {
+  const navigate = useNavigate();
+  const [relayCode, setRelayCode] = useState('');
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState('');
+
+  const validateCode = () => {
+    try {
+      const report = parseRelayCode(relayCode);
+      setPreview(report);
+      setError('');
+      return report;
+    } catch (parseError) {
+      setPreview(null);
+      setError(parseError.message || 'Invalid relay code');
+      return null;
+    }
+  };
+
+  const handleImport = () => {
+    const report = validateCode();
+    if (!report) return;
+
+    try {
+      importRelayReport(relayCode);
+      syncOfflineRequests().catch(() => {});
+      toast.success('Offline victim report dashboard ও map-এ যোগ হয়েছে');
+      navigate('/dashboard');
+    } catch (importError) {
+      setError(importError.message || 'Report import করা যায়নি');
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center"><Radio className="h-8 w-8 mr-3 text-primary-600" />Import Offline Report</h1>
+        <p className="text-gray-600 mt-2">Victim-এর device থেকে পাওয়া SIREN relay code import করুন।</p>
+      </div>
+
+      <Alert
+        type="info"
+        title="Store-and-forward rescue relay"
+        message="Import করার সঙ্গে সঙ্গে report এই responder device-এর dashboard ও map-এ দেখা যাবে। এই device internet পেলে report server-এ sync হবে এবং অন্য responders-ও দেখতে পারবে।"
+        className="mb-6"
+      />
+
+      <Card>
+        <Textarea
+          label="SIREN Relay Code বা সম্পূর্ণ shared message"
+          value={relayCode}
+          onChange={(event) => { setRelayCode(event.target.value); setPreview(null); setError(''); }}
+          placeholder="SIREN1. দিয়ে শুরু হওয়া code paste করুন"
+          rows={8}
+          error={error}
+        />
+        <div className="flex flex-col sm:flex-row gap-3 mt-4">
+          <Button onClick={validateCode} variant="secondary" fullWidth>Check Report</Button>
+          <Button onClick={handleImport} icon={ShieldCheck} fullWidth>Import to Dashboard</Button>
+        </div>
+      </Card>
+
+      {preview && (
+        <Card title="Report Preview" className="mt-6">
+          <div className="flex flex-wrap gap-2 mb-3">
+            <Badge variant={preview.severity === 'critical' ? 'danger' : preview.severity === 'high' ? 'warning' : 'info'}>{preview.severity.toUpperCase()}</Badge>
+            <Badge variant="info">{preview.emergencyType}</Badge>
+          </div>
+          <div className="space-y-2 text-sm">
+            <p><strong>Victim:</strong> {preview.victimName}</p>
+            <p><strong>Phone:</strong> {preview.phone}</p>
+            <p><strong>Address:</strong> {preview.address}</p>
+            <p><strong>Details:</strong> {preview.description}</p>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+export default RelayReport;

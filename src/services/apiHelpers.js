@@ -26,3 +26,13 @@ export const isNetworkError = (error) => {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
   return !error?.response;
 };
+
+/**
+ * Static deployments (for example GitHub Pages) return 404 for /api routes
+ * when no backend is attached. Treat only availability errors as offline;
+ * authentication and validation errors must still reach the UI.
+ */
+export const isBackendUnavailable = (error) => {
+  if (isNetworkError(error)) return true;
+  return [404, 502, 503, 504].includes(error?.response?.status);
+};

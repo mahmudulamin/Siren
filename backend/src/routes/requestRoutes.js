@@ -7,7 +7,7 @@ import {
   deleteRequest,
   assignVolunteer
 } from '../controllers/requestController.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
 import { authorize } from '../middleware/authorize.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 import {
@@ -89,7 +89,7 @@ router.get('/', authenticate, validateGetRequests, handleValidationErrors, getAl
  *       201:
  *         description: Request created successfully
  */
-router.post('/', authenticate, apiLimiter, validateCreateRequest, handleValidationErrors, createRequest);
+router.post('/', optionalAuthenticate, apiLimiter, validateCreateRequest, handleValidationErrors, createRequest);
 
 /**
  * @swagger

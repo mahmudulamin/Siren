@@ -1,5 +1,5 @@
 import api from './api';
-import { unwrapApiResponse } from './apiHelpers';
+import { isBackendUnavailable, unwrapApiResponse } from './apiHelpers';
 
 /**
  * Authentication Service
@@ -22,6 +22,7 @@ export const login = async (email, password, role) => {
     
     return apiData;
   } catch (error) {
+    if (!isBackendUnavailable(error)) throw error;
     // Mock response for development
     console.warn('API not available, using mock data');
     const mockUser = {
@@ -56,6 +57,7 @@ export const register = async (userData) => {
     
     return apiData;
   } catch (error) {
+    if (!isBackendUnavailable(error)) throw error;
     // Mock response for development
     console.warn('API not available, using mock data');
     const mockUser = {
@@ -78,7 +80,6 @@ export const register = async (userData) => {
 export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  globalThis.location.href = '/login';
 };
 
 /**

@@ -22,8 +22,8 @@ export const AuthProvider = ({ children }) => {
   };
   
   const logout = () => {
-    setUser(null);
     authLogout();
+    setUser(null);
   };
   
   const updateUser = (updates) => {

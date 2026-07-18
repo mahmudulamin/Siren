@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Camera, Upload, AlertTriangle } from 'lucide-react';
 import Input from '../components/Input';
@@ -7,16 +7,19 @@ import Select from '../components/Select';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Alert from '../components/Alert';
+import OfflineRelayCard from '../components/OfflineRelayCard';
 import { createRequest, uploadRequestPhoto } from '../services/requestService';
 import { EMERGENCY_TYPES, SEVERITY_LEVELS } from '../utils/config';
 import { getCurrentLocation } from '../utils/helpers';
+import { useAuth } from '../context/useAuth';
 import toast from 'react-hot-toast';
 
 /**
  * Help Request Form Page
  */
-const RequestHelp = () => {
+const RequestHelp = ({ publicMode = false }) => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   
   const [formData, setFormData] = useState({
     victimName: '',
@@ -27,7 +30,8 @@ const RequestHelp = () => {
     emergencyType: '',
     description: '',
     severity: 'medium',
-    photoUrl: null
+    photoUrl: null,
+    locationSource: 'address'
   });
   
   const [errors, setErrors] = useState({});
@@ -35,6 +39,7 @@ const RequestHelp = () => {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [savedOfflineRequest, setSavedOfflineRequest] = useState(null);
   
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -50,13 +55,32 @@ const RequestHelp = () => {
       const location = await getCurrentLocation();
       setFormData(prev => ({
         ...prev,
-        coordinates: location
+        coordinates: location,
+        locationSource: 'gps'
       }));
       toast.success('Location captured successfully!');
     } catch (error) {
-      toast.error('Could not get location. Please enable GPS.');
+      toast.error('GPS পাওয়া যায়নি। বিস্তারিত ঠিকানা দিয়ে request submit করুন।');
     } finally {
       setGettingLocation(false);
+    }
+  };
+
+  const handleCoordinateChange = (e) => {
+    const { name, value } = e.target;
+    const coordinate = value === '' ? null : Number(value);
+
+    setFormData(prev => ({
+      ...prev,
+      coordinates: {
+        ...prev.coordinates,
+        [name]: coordinate
+      },
+      locationSource: 'manual'
+    }));
+
+    if (errors.coordinates) {
+      setErrors(prev => ({ ...prev, coordinates: '' }));
     }
   };
   
@@ -95,8 +119,18 @@ const RequestHelp = () => {
       newErrors.description = 'Detailed description is required (min 20 characters)';
     }
     
-    if (!formData.coordinates.lat || !formData.coordinates.lng) {
-      newErrors.coordinates = 'Please capture your GPS location';
+    const hasLatitude = formData.coordinates.lat !== null;
+    const hasLongitude = formData.coordinates.lng !== null;
+
+    if (hasLatitude !== hasLongitude) {
+      newErrors.coordinates = 'Latitude এবং longitude দুটোই দিন, অথবা দুটোই খালি রাখুন';
+    } else if (
+      hasLatitude &&
+      (!Number.isFinite(formData.coordinates.lat) || !Number.isFinite(formData.coordinates.lng) ||
+        formData.coordinates.lat < -90 || formData.coordinates.lat > 90 ||
+        formData.coordinates.lng < -180 || formData.coordinates.lng > 180)
+    ) {
+      newErrors.coordinates = 'সঠিক latitude ও longitude দিন';
     }
     
     setErrors(newErrors);
@@ -124,6 +158,12 @@ const RequestHelp = () => {
       // Submit request
       const requestData = {
         ...formData,
+        coordinates: formData.coordinates.lat !== null && formData.coordinates.lng !== null
+          ? formData.coordinates
+          : null,
+        locationSource: formData.coordinates.lat !== null && formData.coordinates.lng !== null
+          ? formData.locationSource
+          : 'address',
         photoUrl
       };
       
@@ -131,10 +171,14 @@ const RequestHelp = () => {
       
       toast.success(
         response?.offline
-          ? 'Request saved safely on this device. It will sync automatically.'
+          ? 'Request saved on this device. Relay it to a nearby responder now.'
           : 'Emergency request submitted successfully!'
       );
-      navigate('/dashboard');
+      if (response?.offline && response?.request) {
+        setSavedOfflineRequest(response.request);
+        return;
+      }
+      navigate(isAuthenticated && !publicMode ? '/dashboard' : '/');
     } catch (error) {
       toast.error('Failed to submit request. Please try again.');
     } finally {
@@ -142,6 +186,15 @@ const RequestHelp = () => {
     }
   };
   
+  if (savedOfflineRequest) {
+    return (
+      <OfflineRelayCard
+        request={savedOfflineRequest}
+        onDone={() => navigate(isAuthenticated && !publicMode ? '/dashboard' : '/')}
+      />
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-8">
@@ -156,6 +209,13 @@ const RequestHelp = () => {
         type="warning"
         title="Emergency Notice"
         message="For life-threatening emergencies, call 999 immediately. This form is for coordinating rescue and relief operations."
+        className="mb-6"
+      />
+
+      <Alert
+        type="info"
+        title={publicMode ? 'অফলাইনেও জরুরি রিপোর্ট পাঠান — login প্রয়োজন নেই' : 'অফলাইন জরুরি রিপোর্টিং প্রস্তুত'}
+        message="Internet না থাকলেও report জমা দিন—এটি আপনার device-এ নিরাপদে সংরক্ষিত থাকবে। দ্রুত সহায়তার জন্য Submit করার পর Nearby Share, Bluetooth, SMS অথবা Relay Code দিয়ে কাছের volunteer/official-এর সঙ্গে share করুন। সংযোগ পাওয়া মাত্র report SIREN network-এ নিজে থেকে sync হবে।"
         className="mb-6"
       />
       
@@ -212,7 +272,7 @@ const RequestHelp = () => {
             
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                GPS Coordinates <span className="text-danger-600">*</span>
+                GPS Coordinates (Optional)
               </label>
               <div className="flex items-center gap-4">
                 <Button
@@ -220,15 +280,39 @@ const RequestHelp = () => {
                   onClick={handleGetLocation}
                   loading={gettingLocation}
                   icon={MapPin}
-                  variant={formData.coordinates.lat ? 'success' : 'primary'}
+                  variant={formData.coordinates.lat !== null ? 'success' : 'primary'}
                 >
-                  {formData.coordinates.lat ? 'Location Captured' : 'Capture Location'}
+                  {formData.coordinates.lat !== null ? 'Location Captured' : 'Try GPS Location'}
                 </Button>
-                {formData.coordinates.lat && (
+                {formData.coordinates.lat !== null && (
                   <span className="text-sm text-gray-600">
                     {formData.coordinates.lat.toFixed(6)}, {formData.coordinates.lng.toFixed(6)}
                   </span>
                 )}
+              </div>
+              <p className="mt-2 text-sm text-gray-500">
+                GPS satellite signal থাকলে internet ছাড়াও কাজ করতে পারে। না করলে নিচে coordinates দিন,
+                অথবা খালি রেখে শুধু বিস্তারিত address দিয়ে submit করুন।
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <Input
+                  label="Latitude (Optional)"
+                  type="number"
+                  name="lat"
+                  value={formData.coordinates.lat ?? ''}
+                  onChange={handleCoordinateChange}
+                  placeholder="Example: 23.8103"
+                  step="any"
+                />
+                <Input
+                  label="Longitude (Optional)"
+                  type="number"
+                  name="lng"
+                  value={formData.coordinates.lng ?? ''}
+                  onChange={handleCoordinateChange}
+                  placeholder="Example: 90.4125"
+                  step="any"
+                />
               </div>
               {errors.coordinates && (
                 <p className="mt-1 text-sm text-danger-600">{errors.coordinates}</p>

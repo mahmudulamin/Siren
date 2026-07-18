@@ -41,8 +41,29 @@ const notifyQueueChanged = (requests) => {
 };
 
 const writeRequests = (requests) => {
-  localStorage.setItem(LOCAL_REQUESTS_KEY, JSON.stringify(requests));
-  notifyQueueChanged(requests);
+  let storedRequests = requests;
+
+  try {
+    localStorage.setItem(LOCAL_REQUESTS_KEY, JSON.stringify(storedRequests));
+  } catch (error) {
+    // Preserve the life-saving text/location report if browser storage cannot
+    // fit one or more encoded photos.
+    storedRequests = requests.map((request) => (
+      typeof request.photoUrl === 'string' && request.photoUrl.startsWith('data:')
+        ? { ...request, photoUrl: null, photoOmittedOffline: true }
+        : request
+    ));
+
+    try {
+      localStorage.setItem(LOCAL_REQUESTS_KEY, JSON.stringify(storedRequests));
+    } catch {
+      throw new Error('Device storage is full. Free some browser storage and try again.', {
+        cause: error
+      });
+    }
+  }
+
+  notifyQueueChanged(storedRequests);
 };
 
 export const getCachedRequests = ({ includeDeleted = false } = {}) => {

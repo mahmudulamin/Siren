@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { AlertTriangle, CheckCircle, Clock, MapPin } from 'lucide-react';
 import StatsCard from '../components/StatsCard';
@@ -6,10 +7,43 @@ import Card from '../components/Card';
 import Badge from '../components/Badge';
 import Loader from '../components/Loader';
 import DonorDashboard from '../components/DonorDashboard';
-import { getAllRequests } from '../services/requestService';
 import { getVolunteerTasks } from '../services/volunteerService';
 import { getDashboardStats } from '../services/adminService';
 import { getStatusColor, formatDate } from '../utils/helpers';
+import { useLiveRequests } from '../hooks/useLiveRequests';
+
+const EmergencyRequestFeed = ({ requests, title = 'Latest Emergency Requests' }) => (
+  <Card title={title}>
+    {requests.length === 0 ? (
+      <div className="text-center py-10 text-gray-500">
+        <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-gray-400" />
+        <p>No active emergency request right now</p>
+      </div>
+    ) : (
+      <div className="space-y-3">
+        {requests.slice(0, 8).map((request) => (
+          <div key={request.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <h3 className="font-semibold text-gray-900 mr-auto">{request.emergencyType}</h3>
+              <Badge variant={getStatusColor(request.status)}>{request.status.replace('_', ' ').toUpperCase()}</Badge>
+              <Badge variant={request.severity === 'critical' ? 'danger' : request.severity === 'high' ? 'warning' : 'info'}>
+                {request.severity.toUpperCase()}
+              </Badge>
+              {request.syncStatus === 'pending' && <Badge variant="warning">LOCAL / WAITING TO SYNC</Badge>}
+            </div>
+            <p className="text-sm text-gray-600 mb-2">{request.description}</p>
+            <div className="flex flex-wrap items-center text-sm text-gray-500 gap-x-2">
+              <MapPin className="h-4 w-4" />
+              <span>{request.address}</span>
+              <span>•</span>
+              <span>{formatDate(request.createdAt)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </Card>
+);
 
 /**
  * Main Dashboard Component - Role-based rendering
@@ -36,24 +70,7 @@ const Dashboard = () => {
  */
 const VictimDashboard = () => {
   const { user } = useAuth();
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    loadRequests();
-  }, []);
-  
-  const loadRequests = async () => {
-    try {
-      const response = await getAllRequests();
-      // In real app, filter by user ID
-      setRequests(response.requests || []);
-    } catch (error) {
-      console.error('Error loading requests:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { requests, loading } = useLiveRequests();
   
   const stats = {
     total: requests.length,
@@ -150,10 +167,13 @@ const VolunteerDashboard = () => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { requests, loading: requestsLoading, lastUpdated } = useLiveRequests();
   
   useEffect(() => {
     loadTasks();
-  }, []);
+    const timer = window.setInterval(loadTasks, 15000);
+    return () => window.clearInterval(timer);
+  }, [user?.id]);
   
   const loadTasks = async () => {
     try {
@@ -173,13 +193,18 @@ const VolunteerDashboard = () => {
     completed: tasks.filter(t => t.status === 'completed').length
   };
   
-  if (loading) return <Loader fullScreen text="Loading dashboard..." />;
+  const openRequests = requests
+    .filter((request) => !['completed', 'cancelled'].includes(request.status))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  if (loading && requestsLoading) return <Loader fullScreen text="Loading dashboard..." />;
   
   return (
     <div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Welcome, {user?.name}!</h1>
-        <p className="text-gray-600 mt-2">Manage your assigned tasks and help those in need</p>
+        <p className="text-gray-600 mt-2">Manage assigned tasks and monitor new victim requests</p>
+        <p className="text-xs text-gray-500 mt-1">Live updates every 15 seconds{lastUpdated ? ` • Updated ${lastUpdated.toLocaleTimeString()}` : ''}</p>
       </div>
       
       {/* Stats */}
@@ -208,6 +233,10 @@ const VolunteerDashboard = () => {
           icon={CheckCircle}
           color="success"
         />
+      </div>
+
+      <div className="mb-8">
+        <EmergencyRequestFeed requests={openRequests} title={`New Emergency Requests (${openRequests.length})`} />
       </div>
       
       {/* Active Tasks */}
@@ -258,9 +287,12 @@ const OfficialDashboard = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { requests, loading: requestsLoading, lastUpdated } = useLiveRequests();
   
   useEffect(() => {
     loadStats();
+    const timer = window.setInterval(loadStats, 15000);
+    return () => window.clearInterval(timer);
   }, []);
   
   const loadStats = async () => {
@@ -274,20 +306,33 @@ const OfficialDashboard = () => {
     }
   };
   
-  if (loading) return <Loader fullScreen text="Loading dashboard..." />;
+  const activeRequests = requests
+    .filter((request) => !['completed', 'cancelled'].includes(request.status))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const completedRequests = requests.filter((request) => request.status === 'completed').length;
+  const liveStats = {
+    ...stats,
+    totalRequests: requests.length,
+    pendingRequests: requests.filter((request) => request.status === 'pending').length,
+    criticalRequests: activeRequests.filter((request) => request.severity === 'critical').length,
+    responseRate: requests.length ? ((completedRequests / requests.length) * 100).toFixed(1) : 0
+  };
+
+  if (loading && requestsLoading) return <Loader fullScreen text="Loading dashboard..." />;
   
   return (
     <div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Welcome, {user?.name}!</h1>
-        <p className="text-gray-600 mt-2">System overview and management dashboard</p>
+        <p className="text-gray-600 mt-2">System overview and live emergency management dashboard</p>
+        <p className="text-xs text-gray-500 mt-1">Live updates every 15 seconds{lastUpdated ? ` • Updated ${lastUpdated.toLocaleTimeString()}` : ''}</p>
       </div>
       
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatsCard
           title="Total Requests"
-          value={stats?.totalRequests || 0}
+          value={liveStats.totalRequests || 0}
           icon={AlertTriangle}
           color="primary"
           trend="12% from last week"
@@ -295,19 +340,19 @@ const OfficialDashboard = () => {
         />
         <StatsCard
           title="Pending Requests"
-          value={stats?.pendingRequests || 0}
+          value={liveStats.pendingRequests || 0}
           icon={Clock}
           color="warning"
         />
         <StatsCard
           title="Active Volunteers"
-          value={stats?.activeVolunteers || 0}
+          value={liveStats.activeVolunteers || 0}
           icon={MapPin}
           color="info"
         />
         <StatsCard
           title="Completed Tasks"
-          value={stats?.completedTasks || 0}
+          value={liveStats.completedTasks || 0}
           icon={CheckCircle}
           color="success"
         />
@@ -317,43 +362,47 @@ const OfficialDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card>
           <div className="text-center">
-            <p className="text-3xl font-bold text-danger-600">{stats?.criticalRequests || 0}</p>
+            <p className="text-3xl font-bold text-danger-600">{liveStats.criticalRequests || 0}</p>
             <p className="text-sm text-gray-600 mt-2">Critical Requests</p>
           </div>
         </Card>
         <Card>
           <div className="text-center">
-            <p className="text-3xl font-bold text-success-600">{stats?.responseRate || 0}%</p>
+            <p className="text-3xl font-bold text-success-600">{liveStats.responseRate || 0}%</p>
             <p className="text-sm text-gray-600 mt-2">Response Rate</p>
           </div>
         </Card>
         <Card>
           <div className="text-center">
-            <p className="text-3xl font-bold text-primary-600">{stats?.averageResponseTime || 'N/A'}</p>
+            <p className="text-3xl font-bold text-primary-600">{liveStats.averageResponseTime || 'N/A'}</p>
             <p className="text-sm text-gray-600 mt-2">Avg Response Time</p>
           </div>
         </Card>
+      </div>
+
+      <div className="mb-8">
+        <EmergencyRequestFeed requests={activeRequests} title={`Live Emergency Requests (${activeRequests.length})`} />
       </div>
       
       {/* Quick Actions */}
       <Card title="Quick Actions">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <a href="/requests" className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+          <Link to="/requests" className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
             <h3 className="font-semibold text-gray-900 mb-2">Manage Requests</h3>
             <p className="text-sm text-gray-600">View and assign emergency requests</p>
-          </a>
-          <a href="/volunteers" className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+          </Link>
+          <Link to="/volunteers" className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
             <h3 className="font-semibold text-gray-900 mb-2">Volunteer Management</h3>
             <p className="text-sm text-gray-600">Monitor volunteer performance</p>
-          </a>
-          <a href="/admin" className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+          </Link>
+          <Link to="/admin" className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
             <h3 className="font-semibold text-gray-900 mb-2">Analytics</h3>
             <p className="text-sm text-gray-600">View detailed reports and charts</p>
-          </a>
-          <a href="/ai-zones" className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+          </Link>
+          <Link to="/ai-zones" className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
             <h3 className="font-semibold text-gray-900 mb-2">AI Predictions</h3>
             <p className="text-sm text-gray-600">Zone severity assessments</p>
-          </a>
+          </Link>
         </div>
       </Card>
     </div>

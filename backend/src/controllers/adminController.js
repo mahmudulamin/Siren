@@ -103,11 +103,31 @@ export const getZonePredictions = async (req, res, next) => {
   try {
     const zones = await Request.aggregate([
       {
+        $match: {
+          status: { $nin: ['completed', 'cancelled'] },
+          'coordinates.lat': { $type: 'number' },
+          'coordinates.lng': { $type: 'number' }
+        }
+      },
+      {
+        $addFields: {
+          severityRisk: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$severity', 'critical'] }, then: 92 },
+                { case: { $eq: ['$severity', 'high'] }, then: 74 },
+                { case: { $eq: ['$severity', 'medium'] }, then: 52 }
+              ],
+              default: 25
+            }
+          }
+        }
+      },
+      {
         $group: {
           _id: '$address',
           count: { $sum: 1 },
-          severity: { $max: '$severity' },
-          coordinates: { $first: '$coordinates' },
+          maxRisk: { $max: '$severityRisk' },
           lat: { $avg: '$coordinates.lat' },
           lng: { $avg: '$coordinates.lng' }
         }
@@ -120,18 +140,23 @@ export const getZonePredictions = async (req, res, next) => {
       }
     ]);
 
-    const enrichedZones = zones.map((zone, index) => ({
-      id: `zone-${index}`,
-      name: zone._id,
-      severity: getSeverityLevel(zone.count),
-      riskScore: Math.min(100, zone.count * 10),
-      coordinates: {
-        lat: zone.lat,
-        lng: zone.lng
-      },
-      affectedPopulation: zone.count * 50,
-      prediction: `High activity zone with ${zone.count} recent requests`
-    }));
+    const enrichedZones = zones.map((zone, index) => {
+      const riskScore = Math.min(100, zone.maxRisk + Math.min(8, (zone.count - 1) * 2));
+      const severity = riskScore >= 75 ? 'critical' : riskScore >= 40 ? 'moderate' : 'safe';
+
+      return {
+        id: `zone-${index}`,
+        name: zone._id || 'Reported location',
+        severity,
+        riskScore,
+        coordinates: { lat: zone.lat, lng: zone.lng },
+        affectedPopulation: zone.count,
+        requestCount: zone.count,
+        prediction: `${zone.count} active emergency request(s) detected in this area`,
+        recommendations: ['Verify reports', 'Alert nearby volunteers', 'Coordinate emergency response'],
+        updatedAt: new Date().toISOString()
+      };
+    });
 
     const response = new ApiResponse(200, enrichedZones, 'Zone predictions retrieved successfully');
     res.status(200).json(response.toJSON());
@@ -207,11 +232,4 @@ const getActiveDisasters = async () => {
   ]);
 
   return criticalZones.length;
-};
-
-const getSeverityLevel = (count) => {
-  if (count >= 20) return 'critical';
-  if (count >= 10) return 'high';
-  if (count >= 5) return 'medium';
-  return 'low';
 };

@@ -23,3 +23,26 @@ export const authenticate = (req, res, next) => {
     });
   }
 };
+
+// Emergency reports must remain submit-able when a victim has no active
+// session. A valid token still associates the report with the user, while a
+// missing or expired token falls back to an anonymous, rate-limited report.
+export const optionalAuthenticate = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  try {
+    req.user = verifyToken(token);
+  } catch (error) {
+    logger.warn('Ignoring invalid token on public emergency report', {
+      message: error.message
+    });
+    req.user = null;
+  }
+
+  return next();
+};

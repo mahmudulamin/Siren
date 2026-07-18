@@ -8,6 +8,7 @@ import { generalLimiter } from './middleware/rateLimiter.js';
 import errorHandler from './middleware/errorHandler.js';
 import { notFound } from './middleware/notFound.js';
 import logger from './utils/logger.js';
+import mongoose from 'mongoose';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -24,9 +25,21 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmet());
 
+const allowedOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+      return callback(null, true);
+    }
+    const error = new Error(`Origin ${origin} is not allowed by CORS`);
+    error.statusCode = 403;
+    return callback(error);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -63,9 +76,11 @@ app.get('/api/docs/swagger.json', (req, res) => {
 
 // Health check
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'SIREN Backend is running',
+  const databaseConnected = mongoose.connection.readyState === 1;
+  res.status(databaseConnected ? 200 : 503).json({
+    success: databaseConnected,
+    message: databaseConnected ? 'SIREN Backend is running' : 'Database is not connected',
+    database: databaseConnected ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString()
   });
 });

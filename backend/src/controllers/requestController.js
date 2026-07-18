@@ -14,33 +14,62 @@ export const createRequest = async (req, res, next) => {
       emergencyType,
       description,
       severity,
-      photoUrl
+      photoUrl,
+      clientRequestId,
+      locationSource
     } = req.body;
 
-    const request = new Request({
+    const hasCoordinates = coordinates?.lat !== null && coordinates?.lat !== undefined &&
+      coordinates?.lng !== null && coordinates?.lng !== undefined &&
+      Number.isFinite(Number(coordinates.lat)) && Number.isFinite(Number(coordinates.lng));
+    const requestData = {
       victimName,
       phone,
       email: email || undefined,
       address,
-      coordinates,
+      coordinates: hasCoordinates ? coordinates : undefined,
       emergencyType,
       description,
       severity,
       photoUrl: photoUrl || null,
-      victimId: req.user._id
-    });
+      clientRequestId: clientRequestId || undefined,
+      locationSource: hasCoordinates ? (locationSource || 'gps') : 'address',
+      victimId: req.user?._id || undefined
+    };
 
-    await request.save();
+    let request;
+
+    if (clientRequestId) {
+      request = await Request.findOneAndUpdate(
+        { clientRequestId },
+        { $setOnInsert: requestData },
+        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      );
+    } else {
+      request = new Request(requestData);
+      await request.save();
+    }
 
     logger.info('Emergency request created', {
       requestId: request._id,
       severity,
-      userId: req.user._id
+      userId: req.user?._id || null,
+      clientRequestId: clientRequestId || null
     });
 
     const response = new ApiResponse(201, request, 'Request created successfully');
     res.status(201).json(response.toJSON());
   } catch (error) {
+    // A victim and a relay responder may reconnect at the same time. The
+    // shared clientRequestId makes the report idempotent; return the existing
+    // report instead of leaving one device stuck on a duplicate-key error.
+    if (error?.code === 11000 && req.body.clientRequestId) {
+      const existingRequest = await Request.findOne({ clientRequestId: req.body.clientRequestId });
+      if (existingRequest) {
+        const response = new ApiResponse(200, existingRequest, 'Emergency request already synchronized');
+        return res.status(200).json(response.toJSON());
+      }
+    }
     next(error);
   }
 };

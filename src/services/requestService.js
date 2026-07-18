@@ -11,7 +11,7 @@ import {
   normalizeRequest,
   removeCachedRequest
 } from './offlineStore';
-import { isNetworkError, unwrapApiResponse } from './apiHelpers';
+import { isBackendUnavailable, isNetworkError, unwrapApiResponse } from './apiHelpers';
 
 const normalizeRequestResponse = (response) => {
   const apiData = unwrapApiResponse(response);
@@ -50,8 +50,8 @@ const applyFilters = (requests, filters = {}) => {
   });
 };
 
-const requireNetworkFailure = (error) => {
-  if (!isNetworkError(error)) throw error;
+const requireBackendUnavailable = (error) => {
+  if (!isBackendUnavailable(error)) throw error;
 };
 
 const createPayload = (request) => ({
@@ -59,11 +59,16 @@ const createPayload = (request) => ({
   phone: request.phone,
   email: request.email,
   address: request.address,
-  coordinates: request.coordinates,
+  coordinates: Number.isFinite(request.coordinates?.lat) &&
+    Number.isFinite(request.coordinates?.lng)
+    ? request.coordinates
+    : null,
   emergencyType: request.emergencyType,
   description: request.description,
   severity: request.severity,
-  photoUrl: request.photoUrl || null
+  photoUrl: request.photoUrl || null,
+  clientRequestId: request.clientRequestId,
+  locationSource: request.locationSource || 'address'
 });
 
 const updatePayload = (request) => {
@@ -90,7 +95,7 @@ export const getAllRequests = async (filters = {}) => {
       offline: false
     };
   } catch (error) {
-    requireNetworkFailure(error);
+    requireBackendUnavailable(error);
     const requests = applyFilters(getCachedRequests(), filters);
     return { requests, total: requests.length, offline: true };
   }
@@ -107,28 +112,31 @@ export const getRequestById = async (id) => {
     if (apiData?.request) cacheRequest({ ...apiData.request, source: 'server', syncStatus: 'synced' });
     return apiData;
   } catch (error) {
-    requireNetworkFailure(error);
+    requireBackendUnavailable(error);
     return { request: getCachedRequestById(id), offline: true };
   }
 };
 
 export const createRequest = async (requestData) => {
+  const clientRequestId = requestData.clientRequestId || `client-${generateId()}`;
+  const requestWithClientId = { ...requestData, clientRequestId };
+
   if (navigator.onLine) {
     try {
-      const response = await api.post('/requests', requestData);
+      const response = await api.post('/requests', requestWithClientId);
       const apiData = normalizeRequestResponse(response);
       if (apiData?.request) {
         cacheRequest({ ...apiData.request, source: 'server', syncStatus: 'synced' });
       }
       return apiData;
     } catch (error) {
-      requireNetworkFailure(error);
+      requireBackendUnavailable(error);
     }
   }
 
   const newRequest = buildOfflineRequest({
-    id: `offline-${generateId()}`,
-    ...requestData
+    id: `offline-${clientRequestId}`,
+    ...requestWithClientId
   });
   cacheRequest(newRequest);
   return {
@@ -150,7 +158,7 @@ export const updateRequest = async (id, updates) => {
       }
       return apiData;
     } catch (error) {
-      requireNetworkFailure(error);
+      requireBackendUnavailable(error);
     }
   }
 
@@ -182,7 +190,7 @@ export const deleteRequest = async (id) => {
       removeCachedRequest(id);
       return normalizeRequestResponse(response);
     } catch (error) {
-      requireNetworkFailure(error);
+      requireBackendUnavailable(error);
     }
   }
 
@@ -214,7 +222,7 @@ export const getRequestsByVictim = async (victimId) => {
       requests: mergeRequests(getPendingRequests(), apiData.requests || [], getCachedRequests())
     };
   } catch (error) {
-    requireNetworkFailure(error);
+    requireBackendUnavailable(error);
     return { requests: getCachedRequests(), offline: true };
   }
 };

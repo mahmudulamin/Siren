@@ -34,7 +34,9 @@ echo ========================================
 echo.
 echo Starting development server...
 echo.
-echo The app will open at: http://localhost:3000
+echo Local address:   http://localhost:3000
+echo Network address: http://YOUR-PC-IP:3000
+echo Find YOUR-PC-IP by running: ipconfig
 echo.
 echo Demo Credentials:
 echo   Victim: victim@example.com / password

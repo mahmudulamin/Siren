@@ -1,5 +1,5 @@
-const CACHE_NAME = 'siren-shell-v2';
-const RUNTIME_CACHE = 'siren-runtime-v2';
+const CACHE_NAME = 'siren-shell-v5';
+const RUNTIME_CACHE = 'siren-runtime-v5';
 const scopeUrl = new URL(self.registration.scope);
 const APP_SHELL = [
   scopeUrl.href,

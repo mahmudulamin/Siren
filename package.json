@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "vite",
+    "dev:local": "vite --host 127.0.0.1",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx"

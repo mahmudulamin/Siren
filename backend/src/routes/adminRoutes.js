@@ -55,6 +55,7 @@ router.get('/analytics', authenticate, authorize('official'), getAnalytics);
  *       200:
  *         description: Zone predictions retrieved successfully
  */
-router.get('/zones', authenticate, authorize('official'), getZonePredictions);
+// Every authenticated emergency responder needs the same live risk layer.
+router.get('/zones', authenticate, getZonePredictions);
 
 export default router;

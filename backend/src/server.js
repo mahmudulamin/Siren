@@ -9,6 +9,13 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+if (NODE_ENV === 'production') {
+  const missingVariables = ['MONGODB_URI', 'JWT_SECRET'].filter((key) => !process.env[key]);
+  if (missingVariables.length > 0) {
+    throw new Error(`Missing required production environment variables: ${missingVariables.join(', ')}`);
+  }
+}
+
 // Connect to database and start server
 const startServer = async () => {
   try {

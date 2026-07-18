@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { AlertTriangle, Navigation } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import { AlertTriangle, Navigation, RefreshCw, WifiOff } from 'lucide-react';
 import L from 'leaflet';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import Loader from '../components/Loader';
 import Button from '../components/Button';
-import { getAllRequests } from '../services/requestService';
+import { getZonePredictions } from '../services/adminService';
+import { useLiveRequests } from '../hooks/useLiveRequests';
 import { DEFAULT_MAP_CENTER } from '../utils/config';
 import { getSeverityColor, formatDate } from '../utils/helpers';
+import { buildLiveZones, getZoneColor, resolveRequestCoordinates } from '../utils/liveMap';
 import 'leaflet/dist/leaflet.css';
 
 // Fix Leaflet default marker icons
@@ -82,35 +84,68 @@ const RecenterButton = ({ center }) => {
  * Live Map View Page
  */
 const MapView = () => {
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { requests, loading, offline, lastUpdated, refresh } = useLiveRequests();
+  const [baseZones, setBaseZones] = useState([]);
+  const [zonesLoading, setZonesLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedZone, setSelectedZone] = useState(null);
   const [mapCenter] = useState(DEFAULT_MAP_CENTER);
-  
-  useEffect(() => {
-    loadRequests();
-  }, []);
-  
-  const loadRequests = async () => {
+
+  const loadZones = useCallback(async () => {
     try {
-      const response = await getAllRequests();
-      setRequests(response.requests || []);
+      const response = await getZonePredictions();
+      setBaseZones(response.zones || []);
     } catch (error) {
-      console.error('Error loading requests:', error);
+      console.error('Error loading AI zones:', error);
     } finally {
-      setLoading(false);
+      setZonesLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    loadZones();
+    const timer = window.setInterval(loadZones, 30000);
+    window.addEventListener('online', loadZones);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('online', loadZones);
+    };
+  }, [loadZones]);
+
+  const mappedRequests = useMemo(() => requests.map((request) => ({
+    ...request,
+    mapCoordinates: resolveRequestCoordinates(request)
+  })), [requests]);
+  const visibleRequests = mappedRequests.filter((request) => request.mapCoordinates);
+  const unmappedRequests = mappedRequests.filter((request) => !request.mapCoordinates);
+  const liveZones = useMemo(
+    () => buildLiveZones(baseZones, requests),
+    [baseZones, requests]
+  );
+
+  const handleRefresh = () => {
+    refresh();
+    loadZones();
   };
   
-  if (loading) {
+  if (loading && zonesLoading) {
     return <Loader fullScreen text="Loading map..." />;
   }
   
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Live Disaster Map</h1>
-        <p className="text-gray-600 mt-2">Real-time view of all emergency requests</p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Live Disaster Map</h1>
+          <p className="text-gray-600 mt-2">AI situation zones and emergency requests refresh automatically every 15 seconds</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {lastUpdated ? `Last updated: ${lastUpdated.toLocaleTimeString()}` : 'Updating live data...'}
+            {offline && <span className="ml-2 text-warning-700">• showing device-cached reports</span>}
+          </p>
+        </div>
+        <Button size="sm" onClick={handleRefresh}>
+          <RefreshCw className="h-4 w-4 mr-2" /> Refresh now
+        </Button>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -129,11 +164,34 @@ const MapView = () => {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 
-                {requests.map(request => (
-                  request.coordinates && (
+                {liveZones.map((zone) => (
+                  <Circle
+                    key={zone.id}
+                    center={[zone.coordinates.lat, zone.coordinates.lng]}
+                    radius={zone.liveRequestZone ? 5000 : 12000}
+                    pathOptions={{
+                      color: getZoneColor(zone.severity),
+                      fillColor: getZoneColor(zone.severity),
+                      fillOpacity: 0.24,
+                      weight: 2
+                    }}
+                    eventHandlers={{ click: () => setSelectedZone(zone) }}
+                  >
+                    <Popup>
+                      <div className="p-2 min-w-[200px]">
+                        <h3 className="font-semibold text-gray-900">{zone.name}</h3>
+                        <p className="text-sm mt-1">Situation: {zone.severity.toUpperCase()}</p>
+                        <p className="text-sm">Risk score: {zone.riskScore}/100</p>
+                        <p className="text-xs text-gray-600 mt-2">{zone.prediction}</p>
+                      </div>
+                    </Popup>
+                  </Circle>
+                ))}
+
+                {visibleRequests.map(request => (
+                    <React.Fragment key={request.id}>
                     <Marker
-                      key={request.id}
-                      position={[request.coordinates.lat, request.coordinates.lng]}
+                      position={[request.mapCoordinates.lat, request.mapCoordinates.lng]}
                       icon={getMarkerIcon(request.severity)}
                       eventHandlers={{
                         click: () => setSelectedRequest(request)
@@ -152,10 +210,13 @@ const MapView = () => {
                             </Badge>
                           </div>
                           <p className="text-xs text-gray-500">{request.address}</p>
+                          {request.mapCoordinates.approximate && (
+                            <p className="text-xs text-warning-700 mt-1">Approximate district location</p>
+                          )}
                         </div>
                       </Popup>
                     </Marker>
-                  )
+                    </React.Fragment>
                 ))}
                 
                 <RecenterButton center={mapCenter} />
@@ -166,8 +227,9 @@ const MapView = () => {
         
         {/* Sidebar */}
         <div className="space-y-4">
-          <Card title="Legend">
-            <div className="space-y-3">
+          <Card title="Map Legend">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Request markers</p>
+            <div className="space-y-3 mb-5">
               <div className="flex items-center">
                 <div className="w-4 h-4 rounded-full bg-danger-600 mr-3"></div>
                 <span className="text-sm text-gray-700">Critical</span>
@@ -184,6 +246,12 @@ const MapView = () => {
                 <div className="w-4 h-4 rounded-full bg-success-600 mr-3"></div>
                 <span className="text-sm text-gray-700">Low</span>
               </div>
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">AI situation zones</p>
+            <div className="space-y-3">
+              <div className="flex items-center"><div className="w-7 h-4 rounded bg-red-500/30 border-2 border-red-600 mr-3"></div><span className="text-sm text-gray-700">Critical</span></div>
+              <div className="flex items-center"><div className="w-7 h-4 rounded bg-amber-500/30 border-2 border-amber-500 mr-3"></div><span className="text-sm text-gray-700">Moderate</span></div>
+              <div className="flex items-center"><div className="w-7 h-4 rounded bg-green-500/30 border-2 border-green-600 mr-3"></div><span className="text-sm text-gray-700">Safe</span></div>
             </div>
           </Card>
           
@@ -205,8 +273,36 @@ const MapView = () => {
                 </p>
                 <p className="text-sm text-gray-600">Completed</p>
               </div>
+              <div>
+                <p className="text-2xl font-bold text-warning-600">{liveZones.length}</p>
+                <p className="text-sm text-gray-600">AI Situation Zones</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-700">{unmappedRequests.length}</p>
+                <p className="text-sm text-gray-600">Reports Without Mappable Location</p>
+              </div>
             </div>
           </Card>
+
+          {unmappedRequests.length > 0 && (
+            <Card title="Location Needed">
+              <div className="flex items-start text-sm text-gray-600">
+                <WifiOff className="h-5 w-5 mr-2 mt-0.5 text-warning-600 shrink-0" />
+                <p>{unmappedRequests.length} report(s) need GPS, manual coordinates, or a recognised district name before a marker can be placed.</p>
+              </div>
+            </Card>
+          )}
+
+          {selectedZone && (
+            <Card title="Selected AI Zone">
+              <h3 className="font-semibold text-gray-900">{selectedZone.name}</h3>
+              <p className="text-sm text-gray-600 mt-2">{selectedZone.prediction}</p>
+              <p className="text-sm font-semibold mt-3" style={{ color: getZoneColor(selectedZone.severity) }}>
+                {selectedZone.severity.toUpperCase()} • Risk {selectedZone.riskScore}/100
+              </p>
+              <p className="text-xs text-gray-500 mt-2">Active reports in zone: {selectedZone.requestCount || 0}</p>
+            </Card>
+          )}
           
           {selectedRequest && (
             <Card title="Selected Request">
