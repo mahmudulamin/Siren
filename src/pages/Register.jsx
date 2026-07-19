@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Phone, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, Phone, AlertCircle, CheckCircle } from 'lucide-react';
 import { register } from '../services/authService';
 import { useAuth } from '../context/useAuth';
 import Input from '../components/Input';
@@ -43,6 +43,7 @@ const Register = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [officialApplicationSubmitted, setOfficialApplicationSubmitted] = useState(false);
   
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -109,6 +110,12 @@ const Register = () => {
         email: userData.email.trim().toLowerCase(),
         phone: userData.phone.replace(/\D/g, '')
       });
+
+      if (response.approvalPending) {
+        setOfficialApplicationSubmitted(true);
+        return;
+      }
+
       setAuthUser(response.user);
       
       // Redirect to dashboard
@@ -125,6 +132,19 @@ const Register = () => {
       setLoading(false);
     }
   };
+
+  if (officialApplicationSubmitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center py-12 px-4 bg-gray-50">
+        <div className="max-w-md w-full card text-center">
+          <CheckCircle className="h-16 w-16 text-success-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900">Official registration জমা হয়েছে</h2>
+          <p className="text-gray-600 mt-3">একজন existing Official আপনার account approve করলে একই email ও password দিয়ে Official হিসেবে login করতে পারবেন।</p>
+          <Link to="/login" className="btn-primary inline-flex mt-6">Login page-এ যান</Link>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
@@ -157,11 +177,20 @@ const Register = () => {
               options={[
                 { value: USER_ROLES.VICTIM, label: 'Victim - Need Help' },
                 { value: USER_ROLES.VOLUNTEER, label: 'Volunteer - Provide Help' },
+                { value: USER_ROLES.OFFICIAL, label: 'Official - Requires Approval' },
                 { value: USER_ROLES.DONOR, label: 'Donor - Support Relief' }
               ]}
               error={errors.role}
               required
             />
+
+            {formData.role === USER_ROLES.OFFICIAL && (
+              <Alert
+                type="info"
+                title="Official approval প্রয়োজন"
+                message="Registration জমা হওয়ার পর existing Official approve করলে account active হবে। Approval-এর আগে login করা যাবে না।"
+              />
+            )}
             
             <Input
               label="Full Name"

@@ -41,6 +41,20 @@ const userSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true
+    },
+    approvalStatus: {
+      type: String,
+      enum: ['not_required', 'pending', 'approved', 'rejected'],
+      default: 'not_required'
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    reviewedAt: {
+      type: Date,
+      default: null
     }
   },
   {
@@ -51,6 +65,7 @@ const userSchema = new mongoose.Schema(
 // Index for frequently queried fields
 userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
+userSchema.index({ role: 1, approvalStatus: 1 });
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

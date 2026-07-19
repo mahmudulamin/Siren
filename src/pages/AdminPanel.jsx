@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Users, AlertTriangle, CheckCircle } from 'lucide-react';
+import { TrendingUp, Users, AlertTriangle, CheckCircle, ShieldCheck, UserCheck, UserX } from 'lucide-react';
 import Card from '../components/Card';
 import StatsCard from '../components/StatsCard';
 import Loader from '../components/Loader';
 import Badge from '../components/Badge';
+import Button from '../components/Button';
 import toast from 'react-hot-toast';
-import { getDashboardStats, getAnalytics } from '../services/adminService';
+import {
+  getDashboardStats,
+  getAnalytics,
+  getOfficialApplications,
+  reviewOfficialApplication
+} from '../services/adminService';
 import { getAllDonations, updateDonationStatus } from '../services/donationService';
 
 /**
@@ -17,6 +23,8 @@ const AdminPanel = () => {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [donations, setDonations] = useState([]);
+  const [officialApplications, setOfficialApplications] = useState([]);
+  const [reviewingId, setReviewingId] = useState('');
   
   useEffect(() => {
     loadData();
@@ -24,18 +32,48 @@ const AdminPanel = () => {
   
   const loadData = async () => {
     try {
-      const [statsResponse, analyticsResponse, donationResponse] = await Promise.all([
+      const [statsResponse, analyticsResponse, donationResponse, officialResponse] = await Promise.all([
         getDashboardStats(),
         getAnalytics('7d'),
-        getAllDonations()
+        getAllDonations(),
+        getOfficialApplications()
       ]);
       setStats(statsResponse.stats);
       setAnalytics(analyticsResponse.analytics);
       setDonations(donationResponse.donations || []);
+      setOfficialApplications(officialResponse.applications || []);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const reviewApplication = async (applicationId, action) => {
+    const selected = officialApplications.find((item) => item.id === applicationId);
+    const confirmed = window.confirm(
+      action === 'approve'
+        ? `${selected?.name || 'এই applicant'}-কে Official access দিতে চান?`
+        : `${selected?.name || 'এই applicant'}-এর Official application reject করতে চান?`
+    );
+    if (!confirmed) return;
+
+    setReviewingId(applicationId);
+    try {
+      const { application } = await reviewOfficialApplication(applicationId, action);
+      if (action === 'approve') {
+        setOfficialApplications((current) => current.filter((item) => item.id !== applicationId));
+        toast.success(`${application.name}-এর Official account approve হয়েছে`);
+      } else {
+        setOfficialApplications((current) => current.map((item) => (
+          item.id === applicationId ? application : item
+        )));
+        toast.success(`${application.name}-এর application reject করা হয়েছে`);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Official application review করা যায়নি');
+    } finally {
+      setReviewingId('');
     }
   };
 
@@ -61,6 +99,56 @@ const AdminPanel = () => {
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
         <p className="text-gray-600 mt-2">System analytics and performance metrics</p>
       </div>
+
+      <Card
+        title="Official Registration Approval"
+        subtitle="নতুন Official account যাচাই করে approve বা reject করুন।"
+        className="mb-8"
+      >
+        {officialApplications.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <ShieldCheck className="h-12 w-12 mx-auto mb-3 text-success-500" />
+            <p>কোনো Official registration অপেক্ষায় নেই।</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {officialApplications.map((application) => (
+              <div key={application.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-center border border-gray-200 rounded-lg p-4">
+                <div>
+                  <p className="font-semibold text-gray-900">{application.name}</p>
+                  <p className="text-sm text-gray-600">{application.email} • {application.phone}</p>
+                  <p className="text-xs text-gray-500 mt-1">Applied {new Date(application.createdAt).toLocaleString()}</p>
+                </div>
+                <Badge variant={application.approvalStatus === 'pending' ? 'warning' : 'danger'}>
+                  {application.approvalStatus.toUpperCase()}
+                </Badge>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="success"
+                    icon={UserCheck}
+                    onClick={() => reviewApplication(application.id, 'approve')}
+                    loading={reviewingId === application.id}
+                  >
+                    Approve
+                  </Button>
+                  {application.approvalStatus === 'pending' && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      icon={UserX}
+                      onClick={() => reviewApplication(application.id, 'reject')}
+                      disabled={Boolean(reviewingId)}
+                    >
+                      Reject
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
       
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

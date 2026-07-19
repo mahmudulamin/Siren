@@ -23,8 +23,8 @@ export const validateRegister = [
     .matches(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im)
     .withMessage('Please provide a valid phone number'),
   body('role')
-    .isIn(['victim', 'volunteer', 'donor'])
-    .withMessage('Public registration supports victim, volunteer, or donor accounts')
+    .isIn(['victim', 'volunteer', 'official', 'donor'])
+    .withMessage('Role must be one of: victim, volunteer, official, donor')
 ];
 
 export const validateLogin = [

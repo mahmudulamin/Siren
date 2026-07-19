@@ -42,7 +42,7 @@ const router = express.Router();
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [victim, volunteer, donor]
+ *                 enum: [victim, volunteer, official, donor]
  *     responses:
  *       201:
  *         description: Registration successful

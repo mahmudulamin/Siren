@@ -2,7 +2,9 @@ import express from 'express';
 import {
   getDashboardStats,
   getAnalytics,
-  getZonePredictions
+  getZonePredictions,
+  getOfficialApplications,
+  reviewOfficialApplication
 } from '../controllers/adminController.js';
 import { authenticate } from '../middleware/auth.js';
 import { authorize } from '../middleware/authorize.js';
@@ -42,6 +44,20 @@ router.get('/stats', authenticate, authorize('official'), getDashboardStats);
  *         description: Analytics retrieved successfully
  */
 router.get('/analytics', authenticate, authorize('official'), getAnalytics);
+
+router.get(
+  '/official-applications',
+  authenticate,
+  authorize('official'),
+  getOfficialApplications
+);
+
+router.put(
+  '/official-applications/:userId',
+  authenticate,
+  authorize('official'),
+  reviewOfficialApplication
+);
 
 /**
  * @swagger

@@ -11,6 +11,28 @@ export const getAnalytics = async (period = '7d') => {
   return { analytics: unwrapApiResponse(response) };
 };
 
+export const getOfficialApplications = async () => {
+  const response = await api.get('/admin/official-applications');
+  const data = unwrapApiResponse(response) || {};
+  return {
+    applications: (data.applications || []).map((application) => ({
+      ...application,
+      id: String(application.id || application._id)
+    }))
+  };
+};
+
+export const reviewOfficialApplication = async (userId, action) => {
+  const response = await api.put(`/admin/official-applications/${userId}`, { action });
+  const application = unwrapApiResponse(response);
+  return {
+    application: application && {
+      ...application,
+      id: String(application.id || application._id)
+    }
+  };
+};
+
 export const getZonePredictions = async () => {
   try {
     const response = await api.get('/admin/zones');

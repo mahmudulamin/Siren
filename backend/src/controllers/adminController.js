@@ -1,7 +1,61 @@
 import Request from '../models/Request.js';
 import Volunteer from '../models/Volunteer.js';
 import Donation from '../models/Donation.js';
+import User from '../models/User.js';
 import ApiResponse from '../utils/ApiResponse.js';
+import ApiError from '../utils/ApiError.js';
+import mongoose from 'mongoose';
+
+export const getOfficialApplications = async (req, res, next) => {
+  try {
+    const applications = await User.find({
+      role: 'official',
+      approvalStatus: { $in: ['pending', 'rejected'] }
+    })
+      .select('name email phone approvalStatus createdAt reviewedAt')
+      .sort({ createdAt: -1 });
+
+    const response = new ApiResponse(200, { applications }, 'Official applications retrieved successfully');
+    res.status(200).json(response.toJSON());
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const reviewOfficialApplication = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { action } = req.body;
+
+    if (!['approve', 'reject'].includes(action)) {
+      throw ApiError.badRequest('Action must be approve or reject');
+    }
+
+    if (!mongoose.isValidObjectId(userId)) {
+      throw ApiError.badRequest('Invalid official application ID');
+    }
+
+    const applicant = await User.findOne({ _id: userId, role: 'official' });
+    if (!applicant) {
+      throw ApiError.notFound('Official application not found');
+    }
+
+    applicant.approvalStatus = action === 'approve' ? 'approved' : 'rejected';
+    applicant.isActive = action === 'approve';
+    applicant.reviewedBy = req.user._id;
+    applicant.reviewedAt = new Date();
+    await applicant.save();
+
+    const response = new ApiResponse(
+      200,
+      applicant.toJSON(),
+      action === 'approve' ? 'Official account approved successfully' : 'Official application rejected'
+    );
+    res.status(200).json(response.toJSON());
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const getDashboardStats = async (req, res, next) => {
   try {

@@ -22,7 +22,9 @@ export const register = async (req, res, next) => {
       password,
       name,
       phone,
-      role
+      role,
+      isActive: role !== 'official',
+      approvalStatus: role === 'official' ? 'pending' : 'not_required'
     });
 
     await user.save();
@@ -44,7 +46,21 @@ export const register = async (req, res, next) => {
       );
     }
 
-    // Generate token
+    if (user.role === 'official') {
+      logger.info('Official registration submitted for approval', {
+        userId: user._id,
+        email: user.email
+      });
+
+      const response = new ApiResponse(201, {
+        user: user.toJSON(),
+        approvalPending: true
+      }, 'Official registration submitted. An existing official must approve the account before login.');
+
+      return res.status(201).json(response.toJSON());
+    }
+
+    // Generate token for roles that do not need approval
     const token = generateToken({
       _id: user._id,
       email: user.email,
@@ -87,6 +103,18 @@ export const login = async (req, res, next) => {
     if (!isPasswordCorrect) {
       logger.warn('Login attempt with incorrect password', { email });
       throw ApiError.unauthorized('Invalid email or password');
+    }
+
+    if (user.role === 'official' && user.approvalStatus === 'pending') {
+      throw ApiError.forbidden('Your official account is waiting for approval from an existing official');
+    }
+
+    if (user.role === 'official' && user.approvalStatus === 'rejected') {
+      throw ApiError.forbidden('Your official registration was not approved. Contact an existing official for review');
+    }
+
+    if (!user.isActive) {
+      throw ApiError.forbidden('This account is not active');
     }
 
     // Generate token
